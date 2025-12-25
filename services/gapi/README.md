@@ -7,29 +7,43 @@ External-facing gateway API.
 - `GET /health` - Health check
 - `GET /api/hello` - Hello endpoint
 
-## Run Instructions
+## Deployment Options
 
-### 1. Install dependencies
+### Option 1: Unified Deployment (Recommended)
+
+Run from the repo root to deploy both services together:
 
 ```bash
+cd ../..
 pip install -r requirements.txt
-```
-
-### 2. Run the service
-
-```bash
 uvicorn main:app --reload --port 8000
 ```
 
-The service will be available at `http://localhost:8000`
+Access GAPI at: `http://localhost:8000/gapi/api/hello`
 
-### 3. Test the endpoints
+### Option 2: Standalone Deployment
+
+Run GAPI independently:
 
 ```bash
-# Health check
-curl http://localhost:8000/health
+# From services/gapi directory
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
 
-# Hello endpoint
+Access GAPI at: `http://localhost:8000/api/hello`
+
+## Testing
+
+**Unified mode:**
+```bash
+curl http://localhost:8000/gapi/health
+curl http://localhost:8000/gapi/api/hello
+```
+
+**Standalone mode:**
+```bash
+curl http://localhost:8000/health
 curl http://localhost:8000/api/hello
 ```
 

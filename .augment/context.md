@@ -16,8 +16,8 @@ separate services:
    - Manages order state transitions
    - Processes orders and performs execution workflows
 
-Both services live in the same repo today, but are designed to be
-**independently deployable and easily split into separate repos in the future**.
+Both services live in the same repo today, and will deploy together initially
+** easily split into separate repos in the future**.
 
 ---
 

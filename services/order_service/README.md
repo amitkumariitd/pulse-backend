@@ -7,29 +7,43 @@ Internal service that owns the trading order domain.
 - `GET /health` - Health check
 - `GET /internal/hello` - Hello endpoint
 
-## Run Instructions
+## Deployment Options
 
-### 1. Install dependencies
+### Option 1: Unified Deployment (Recommended)
+
+Run from the repo root to deploy both services together:
 
 ```bash
+cd ../..
 pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
 ```
 
-### 2. Run the service
+Access Order Service at: `http://localhost:8000/order_service/internal/hello`
+
+### Option 2: Standalone Deployment
+
+Run Order Service independently:
 
 ```bash
+# From services/order_service directory
+pip install -r requirements.txt
 uvicorn main:app --reload --port 8001
 ```
 
-The service will be available at `http://localhost:8001`
+Access Order Service at: `http://localhost:8001/internal/hello`
 
-### 3. Test the endpoints
+## Testing
 
+**Unified mode:**
 ```bash
-# Health check
-curl http://localhost:8001/health
+curl http://localhost:8000/order_service/health
+curl http://localhost:8000/order_service/internal/hello
+```
 
-# Hello endpoint
+**Standalone mode:**
+```bash
+curl http://localhost:8001/health
 curl http://localhost:8001/internal/hello
 ```
 

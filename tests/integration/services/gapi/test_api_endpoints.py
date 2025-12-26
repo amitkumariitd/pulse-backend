@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
 from fastapi.testclient import TestClient
-from services.gapi.main import app
+from gapi.main import app
 
 client = TestClient(app)
 

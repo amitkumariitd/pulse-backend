@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-from services.gapi.main import health
+from gapi.main import health
 
 
 def test_health_returns_ok():
@@ -22,7 +22,7 @@ def test_health_returns_ok():
     assert result["status"] == "ok"
 
 
-@patch('services.gapi.main.logger')
+@patch('gapi.main.logger')
 def test_health_logs_request(mock_logger):
     """Test health endpoint logs the request with auto-injected context"""
     # Act

@@ -7,10 +7,10 @@ from fastapi import FastAPI
 from shared.observability.middleware import ContextMiddleware
 from shared.observability.logger import get_logger
 
-app = FastAPI(title="Order Service")
-app.add_middleware(ContextMiddleware, service_name="order_service")
+app = FastAPI(title="Pulse")
+app.add_middleware(ContextMiddleware, service_name="pulse")
 
-logger = get_logger("order_service")
+logger = get_logger("pulse")
 
 
 @app.get("/health")
@@ -22,5 +22,5 @@ def health():
 @app.get("/internal/hello")
 def hello():
     logger.info("Hello endpoint called", data={"endpoint": "/internal/hello"})
-    return {"message": "Hello from Order Service"}
+    return {"message": "Hello from Pulse"}
 

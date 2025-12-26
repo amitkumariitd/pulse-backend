@@ -1,4 +1,4 @@
-# Order Service
+# Pulse
 
 Internal service that owns the trading order domain.
 
@@ -11,36 +11,36 @@ Internal service that owns the trading order domain.
 
 ### Option 1: Unified Deployment (Recommended)
 
-Run from the repo root to deploy both services together:
+Run from the repo root to deploy both components together:
 
 ```bash
-cd ../..
+cd ..
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
-Access Order Service at: `http://localhost:8000/order_service/internal/hello`
+Access Pulse at: `http://localhost:8000/pulse/internal/hello`
 
 ### Option 2: Standalone Deployment
 
-Run Order Service independently:
+Run Pulse independently:
 
 ```bash
 # Install dependencies from repo root
-pip install -r ../../requirements.txt
+pip install -r ../requirements.txt
 
-# Run from services/order_service directory
+# Run from pulse directory
 uvicorn main:app --reload --port 8001
 ```
 
-Access Order Service at: `http://localhost:8001/internal/hello`
+Access Pulse at: `http://localhost:8001/internal/hello`
 
 ## Testing
 
 **Unified mode:**
 ```bash
-curl http://localhost:8000/order_service/health
-curl http://localhost:8000/order_service/internal/hello
+curl http://localhost:8000/pulse/health
+curl http://localhost:8000/pulse/internal/hello
 ```
 
 **Standalone mode:**

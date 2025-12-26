@@ -5,7 +5,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
 from fastapi.testclient import TestClient
-from services.order_service.main import app
+from pulse.main import app
 
 client = TestClient(app)
 
@@ -61,7 +61,7 @@ def test_hello_endpoint_success():
     
     # Assert
     assert response.status_code == 200
-    assert response.json() == {"message": "Hello from Order Service"}
+    assert response.json() == {"message": "Hello from Pulse"}
 
 
 def test_hello_endpoint_includes_tracing_headers():
@@ -111,8 +111,8 @@ def test_trace_source_includes_method_and_path():
     # Assert
     assert response.status_code == 200
     assert captured_context is not None
-    assert captured_context.trace_source == "ORDER_SERVICE:GET/test/source"
-    assert captured_context.request_source == "ORDER_SERVICE:GET/test/source"
+    assert captured_context.trace_source == "PULSE:GET/test/source"
+    assert captured_context.request_source == "PULSE:GET/test/source"
 
 
 def test_trace_source_distinguishes_http_methods():
@@ -142,8 +142,8 @@ def test_trace_source_distinguishes_http_methods():
     # Assert
     assert get_response.status_code == 200
     assert post_response.status_code == 200
-    assert get_context.trace_source == "ORDER_SERVICE:GET/test/method"
-    assert post_context.trace_source == "ORDER_SERVICE:POST/test/method"
+    assert get_context.trace_source == "PULSE:GET/test/method"
+    assert post_context.trace_source == "PULSE:POST/test/method"
 
 
 def test_trace_source_preserved_from_header():
@@ -169,5 +169,5 @@ def test_trace_source_preserved_from_header():
     # Assert
     assert response.status_code == 200
     assert captured_context.trace_source == "GAPI:POST/api/orders"
-    assert captured_context.request_source == "ORDER_SERVICE:GET/test/propagation"
+    assert captured_context.request_source == "PULSE:GET/test/propagation"
 

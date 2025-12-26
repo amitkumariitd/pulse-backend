@@ -1,3 +1,8 @@
+---
+type: "always_apply"
+description: "Example description"
+---
+
 # Testing Rules (MANDATORY)
 
 **Every code change MUST have corresponding tests. No exceptions.**

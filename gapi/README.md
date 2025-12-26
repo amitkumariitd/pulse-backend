@@ -11,10 +11,10 @@ External-facing gateway API.
 
 ### Option 1: Unified Deployment (Recommended)
 
-Run from the repo root to deploy both services together:
+Run from the repo root to deploy both components together:
 
 ```bash
-cd ../..
+cd ..
 pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
@@ -27,9 +27,9 @@ Run GAPI independently:
 
 ```bash
 # Install dependencies from repo root
-pip install -r ../../requirements.txt
+pip install -r ../requirements.txt
 
-# Run from services/gapi directory
+# Run from gapi directory
 uvicorn main:app --reload --port 8000
 ```
 

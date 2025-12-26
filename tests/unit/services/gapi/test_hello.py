@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-from services.gapi.main import hello
+from gapi.main import hello
 
 
 def test_hello_returns_message():
@@ -21,7 +21,7 @@ def test_hello_returns_message():
     assert result["message"] == "Hello from GAPI"
 
 
-@patch('services.gapi.main.logger')
+@patch('gapi.main.logger')
 def test_hello_logs_with_data(mock_logger):
     """Test hello endpoint logs with endpoint data and auto-injected context"""
     # Act

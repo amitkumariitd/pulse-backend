@@ -9,7 +9,7 @@
 python -m pytest -v
 
 # With coverage
-python -m pytest --cov=services --cov=shared --cov-report=html
+python -m pytest --cov=gapi --cov=pulse --cov=shared --cov-report=html
 open htmlcov/index.html
 ```
 
@@ -24,11 +24,11 @@ open htmlcov/index.html
 python -m pytest tests/unit/ -v          # All unit tests (8 tests)
 python -m pytest tests/integration/ -v   # All integration tests (12 tests)
 
-# By service
+# By component
 python -m pytest tests/unit/services/gapi/ -v
-python -m pytest tests/unit/services/order_service/ -v
+python -m pytest tests/unit/services/pulse/ -v
 python -m pytest tests/integration/services/gapi/ -v
-python -m pytest tests/integration/services/order_service/ -v
+python -m pytest tests/integration/services/pulse/ -v
 
 # Shared modules
 python -m pytest tests/unit/shared/ -v
@@ -50,16 +50,16 @@ tests/
 ├── unit/                           # Fast, isolated tests (22 tests)
 │   ├── services/
 │   │   ├── gapi/                   # GAPI unit tests (4 tests)
-│   │   └── order_service/          # Order Service unit tests (4 tests)
+│   │   └── pulse/                  # Pulse unit tests (4 tests)
 │   └── shared/
 │       ├── observability/          # Context, logger, middleware tests (14 tests)
 │       └── http/                   # HTTP client tests
 └── integration/                    # End-to-end tests (18 tests)
     ├── services/
     │   ├── gapi/                   # GAPI integration tests (9 tests)
-    │   └── order_service/          # Order Service integration tests (9 tests)
+    │   └── pulse/                  # Pulse integration tests (9 tests)
     └── shared/
-        └── observability/          # Cross-service integration tests
+        └── observability/          # Cross-component integration tests
 ```
 
 **Total**: 40 tests, 100% passing

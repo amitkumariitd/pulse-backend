@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
-from services.order_service.main import hello
+from pulse.main import hello
 
 
 def test_hello_returns_message():
@@ -18,10 +18,10 @@ def test_hello_returns_message():
     
     # Assert
     assert "message" in result
-    assert result["message"] == "Hello from Order Service"
+    assert result["message"] == "Hello from Pulse"
 
 
-@patch('services.order_service.main.logger')
+@patch('pulse.main.logger')
 def test_hello_logs_with_data(mock_logger):
     """Test hello endpoint logs with endpoint data and auto-injected context"""
     # Act
@@ -35,5 +35,5 @@ def test_hello_logs_with_data(mock_logger):
     assert call_args[0][0] == "Hello endpoint called"
     assert call_args[1]['data'] == {"endpoint": "/internal/hello"}
 
-    assert result["message"] == "Hello from Order Service"
+    assert result["message"] == "Hello from Pulse"
 

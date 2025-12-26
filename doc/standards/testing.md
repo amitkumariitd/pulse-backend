@@ -26,32 +26,49 @@ Define standards for unit tests and integration tests to ensure code quality, re
 
 ## Directory Structure
 
+Tests are organized at the root level, mirroring the project structure:
+
 ```
-services/
-├── gapi/
-│   ├── main.py
-│   ├── tests/
-│   │   ├── __init__.py
-│   │   ├── unit/
-│   │   │   ├── __init__.py
+tests/
+├── unit/                           # Fast, isolated tests
+│   ├── services/
+│   │   ├── gapi/
 │   │   │   ├── test_health.py
 │   │   │   └── test_hello.py
-│   │   └── integration/
-│   │       ├── __init__.py
-│   │       └── test_api_endpoints.py
-│   └── ...
-└── order_service/
-    ├── main.py
-    ├── tests/
-    │   ├── __init__.py
-    │   ├── unit/
-    │   │   ├── __init__.py
-    │   │   └── test_*.py
-    │   └── integration/
-    │       ├── __init__.py
-    │       └── test_*.py
-    └── ...
+│   │   └── order_service/
+│   │       ├── test_health.py
+│   │       └── test_hello.py
+│   └── shared/
+│       ├── observability/
+│       │   ├── test_context.py
+│       │   ├── test_logger.py
+│       │   └── test_middleware.py
+│       └── http/
+│           └── test_client.py
+└── integration/                    # End-to-end tests
+    ├── services/
+    │   ├── gapi/
+    │   │   └── test_api_endpoints.py
+    │   └── order_service/
+    │       └── test_api_endpoints.py
+    └── shared/
+        └── observability/
+            └── test_context_propagation.py
 ```
+
+### Principles
+
+1. **Mirror project structure** - Test paths mirror source code paths
+   - `shared/observability/context.py` → `tests/unit/shared/observability/test_context.py`
+   - `services/gapi/main.py` → `tests/unit/services/gapi/test_main.py`
+
+2. **Organize by test type first** - Unit vs Integration
+   - `tests/unit/` - Fast, isolated, no external dependencies
+   - `tests/integration/` - End-to-end, may use real dependencies
+
+3. **Support shared code testing** - Shared modules have their own tests
+   - Service tests in `tests/*/services/`
+   - Shared tests in `tests/*/shared/`
 
 ---
 
@@ -270,27 +287,45 @@ assert mock.call_count == 1  # Fragile
 
 ### Run All Tests
 ```bash
-pytest
+python -m pytest -v
 ```
 
 ### Run Unit Tests Only
 ```bash
-pytest tests/unit/
+python -m pytest tests/unit/ -v
 ```
 
 ### Run Integration Tests Only
 ```bash
-pytest tests/integration/
+python -m pytest tests/integration/ -v
+```
+
+### Run Specific Service Tests
+```bash
+# GAPI unit tests
+python -m pytest tests/unit/services/gapi/ -v
+
+# Order Service integration tests
+python -m pytest tests/integration/services/order_service/ -v
+```
+
+### Run Shared Module Tests
+```bash
+# All shared unit tests
+python -m pytest tests/unit/shared/ -v
+
+# Specific shared module
+python -m pytest tests/unit/shared/observability/ -v
 ```
 
 ### Run with Coverage
 ```bash
-pytest --cov=services --cov-report=html
+python -m pytest --cov=services --cov=shared --cov-report=html
 ```
 
 ### Run Specific Test
 ```bash
-pytest tests/unit/test_orders.py::test_create_order_success
+python -m pytest tests/unit/services/gapi/test_health.py::test_health_returns_ok -v
 ```
 
 ---

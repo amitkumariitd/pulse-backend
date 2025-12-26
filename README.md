@@ -58,6 +58,17 @@ uvicorn main:app --reload --port 8001
 
 See [services/order_service/README.md](services/order_service/README.md) for details.
 
+## Testing
+
+Run all tests:
+```bash
+python -m pytest -v
+```
+
+See [TESTING.md](TESTING.md) for details.
+
+---
+
 ## Architecture
 
 Both services are:

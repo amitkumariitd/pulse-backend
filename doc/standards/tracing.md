@@ -46,7 +46,7 @@ Mandatory enforcement lives in `RULES.md`.
 **Example:**
 ```
 trace_id = t1735228800a1b2c3d4e5f6
-trace_source = GAPI:create_order
+trace_source = GAPI:POST/api/orders
 ```
 
 **Breakdown:**
@@ -73,7 +73,7 @@ trace_source = GAPI:create_order
 **Example:**
 ```
 request_id = r1735228800f6e5d4c3b2a1
-request_source = GAPI:create_order
+request_source = GAPI:POST/api/orders
 ```
 
 **Breakdown:**
@@ -86,6 +86,42 @@ request_source = GAPI:create_order
 - Sortable by time
 - Globally unique
 - Easy to correlate with trace_id by timestamp
+
+---
+
+## Source Format
+
+### trace_source and request_source
+
+Both follow the format: `SERVICE_NAME:METHOD/path`
+
+**Examples:**
+```
+GAPI:GET/health
+GAPI:POST/api/orders
+GAPI:GET/api/orders/123
+ORDER_SERVICE:POST/internal/orders
+ORDER_SERVICE:GET/health
+```
+
+**Rules:**
+- Service name is UPPERCASE
+- HTTP method is UPPERCASE (GET, POST, PUT, DELETE, etc.)
+- No space between method and path
+- Path starts with `/`
+- Path parameters are included (e.g., `/api/orders/123`)
+
+**Why include HTTP method?**
+- Distinguishes between different operations on the same path
+  - `GET/api/orders` (list orders) vs `POST/api/orders` (create order)
+- Makes traces more specific and searchable
+- Aligns with standard HTTP semantics
+
+**Why paths instead of operation names?**
+- Paths are automatically available in middleware
+- Paths are standard REST identifiers
+- Paths appear in logs, metrics, and traces consistently
+- No need to manually maintain operation_id on every endpoint
 
 ---
 

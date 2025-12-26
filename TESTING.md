@@ -1,5 +1,7 @@
 # Testing Guide
 
+> **Mandatory Rule**: Every code change MUST have tests. See `.augment/rules/rules.md` for enforcement policy.
+
 ## Quick Start
 
 ```bash
@@ -11,7 +13,7 @@ python -m pytest --cov=services --cov=shared --cov-report=html
 open htmlcov/index.html
 ```
 
-**Status**: 34/34 tests passing ✅
+**Status**: 40/40 tests passing ✅
 
 ---
 
@@ -52,15 +54,15 @@ tests/
 │   └── shared/
 │       ├── observability/          # Context, logger, middleware tests (14 tests)
 │       └── http/                   # HTTP client tests
-└── integration/                    # End-to-end tests (12 tests)
+└── integration/                    # End-to-end tests (18 tests)
     ├── services/
-    │   ├── gapi/                   # GAPI integration tests (6 tests)
-    │   └── order_service/          # Order Service integration tests (6 tests)
+    │   ├── gapi/                   # GAPI integration tests (9 tests)
+    │   └── order_service/          # Order Service integration tests (9 tests)
     └── shared/
         └── observability/          # Cross-service integration tests
 ```
 
-**Total**: 34 tests, 100% passing
+**Total**: 40 tests, 100% passing
 
 ### Key Principles
 - **Mirrors project structure** - `shared/observability/context.py` → `tests/unit/shared/observability/test_context.py`
@@ -71,7 +73,38 @@ tests/
 
 ## Writing New Tests
 
+### What Requires Tests
+
+**Every code change MUST have tests:**
+
+- **New endpoints** → integration tests covering:
+  - ✅ Success path
+  - ✅ Validation failure
+  - ✅ Auth failure (if applicable)
+  - ✅ Tracing headers
+
+- **New functions/methods** → unit tests covering:
+  - ✅ Expected behavior
+  - ✅ Edge cases
+  - ✅ Error conditions
+
+- **Modified behavior** → regression tests:
+  - ✅ New behavior works
+  - ✅ Existing behavior still works
+  - ✅ Edge cases handled
+
+- **Middleware changes** → tests for:
+  - ✅ Request/response handling
+  - ✅ Header manipulation
+  - ✅ Context creation/propagation
+
+- **Shared utilities** → comprehensive tests:
+  - ✅ All public functions
+  - ✅ Validation logic
+  - ✅ Format/parsing logic
+
 ### AAA Pattern
+
 ```python
 def test_example():
     # Arrange
@@ -84,11 +117,13 @@ def test_example():
     assert result["status"] == "success"
 ```
 
-### Requirements
-Every new endpoint MUST have:
-- ✅ Success path test
-- ✅ Validation failure test (if applicable)
-- ✅ Tracing headers test
+### Test Requirements
+
+- Tests MUST be written BEFORE marking work as complete
+- Tests MUST pass before considering the change done
+- Tests MUST verify actual behavior, not just call the code
+- Do NOT disable tests to make builds pass
+- Do NOT skip tests because "it's simple" or "obvious"
 
 ---
 

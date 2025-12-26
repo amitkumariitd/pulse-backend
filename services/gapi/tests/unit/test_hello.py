@@ -21,26 +21,19 @@ def test_hello_returns_message():
     assert result["message"] == "Hello from GAPI"
 
 
-@patch('services.gapi.main.get_trace_context')
 @patch('services.gapi.main.logger')
-def test_hello_logs_with_data(mock_logger, mock_get_context):
-    """Test hello endpoint logs with endpoint data"""
-    # Arrange
-    mock_get_context.return_value = {
-        'trace_id': 't-abc',
-        'request_id': 'r-xyz'
-    }
-    
+def test_hello_logs_with_data(mock_logger):
+    """Test hello endpoint logs with endpoint data and auto-injected context"""
     # Act
     result = hello()
-    
+
     # Assert
-    mock_get_context.assert_called_once()
     mock_logger.info.assert_called_once()
-    
+
     # Verify logger was called with data parameter
     call_args = mock_logger.info.call_args
+    assert call_args[0][0] == "Hello endpoint called"
     assert call_args[1]['data'] == {"endpoint": "/api/hello"}
-    
+
     assert result["message"] == "Hello from GAPI"
 

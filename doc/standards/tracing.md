@@ -19,7 +19,6 @@ Mandatory enforcement lives in `RULES.md`.
 - Tracing is end-to-end
 - Implemented via middleware, not business logic
 - IDs and their sources always travel together
-- Each service owns its span
 
 ---
 
@@ -31,8 +30,6 @@ Mandatory enforcement lives in `RULES.md`.
 | trace_source | Origin of the trace                            |
 | request_id | Synchronous request identifier (starts with `r`) |
 | request_source | Origin of the request                          |
-| span_id | Service-level span identifier (starts with `s`) |
-| span_source | Service and endpoint creating the span         |
 
 ---
 
@@ -59,20 +56,6 @@ trace_source = GAPI:create_order
 Example:
 request_id = r-912873
 request_source = GAPI:create_order
----
-
-### span_id & span_source
-- `span_id` starts with `s`
-- Created **per service**
-- Represents work done by that service
-- `span_source` identifies the service and endpoint creating the span
-
-Example:
-span_id = s-01ab9
-span_source = ORDER:reserve_inventory
-
-yaml
-Copy code
 
 ---
 
@@ -81,7 +64,6 @@ Copy code
 ### Ingress
 - Continue trace if present, else create new `trace_id`
 - Generate `request_id` if missing
-- Create a new `span_id`
 - Set all corresponding sources
 
 ---
@@ -90,8 +72,6 @@ Copy code
 - Propagate:
   - `trace_id` + `trace_source`
   - `request_id` + `request_source`
-- Each service creates:
-  - New `span_id` + `span_source`
 
 ---
 
@@ -99,33 +79,20 @@ Copy code
 - Propagate:
   - `trace_id` + `trace_source`
   - `request_id` + `request_source`
-- Consumer creates:
-  - New `span_id` + `span_source`
 
 ---
 
-## Database Writes
+## All Writes
 
-All DB writes must automatically include tracing information.
-This enables DB → trace → log correlation.
+All writes must automatically include tracing information.
+This enables Storage → trace → log correlation.
 
 ---
 
 ## Logging
 
-All logs must automatically include:
+All logs should include tracing info.
 
-- trace_id, trace_source
-- request_id, request_source
-- span_id, span_source
----
-
-## Errors
-
-- Errors are recorded on the active span
-- External responses expose `request_id` only
-
----
 
 ## Technology Standard
 

@@ -36,8 +36,11 @@ Each service can also run independently:
 
 ### GAPI
 ```bash
-cd services/gapi
+# Install dependencies from repo root
 pip install -r requirements.txt
+
+# Run GAPI
+cd services/gapi
 uvicorn main:app --reload --port 8000
 ```
 
@@ -45,8 +48,11 @@ See [services/gapi/README.md](services/gapi/README.md) for details.
 
 ### Order Service
 ```bash
-cd services/order_service
+# Install dependencies from repo root
 pip install -r requirements.txt
+
+# Run Order Service
+cd services/order_service
 uvicorn main:app --reload --port 8001
 ```
 

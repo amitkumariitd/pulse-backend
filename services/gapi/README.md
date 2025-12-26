@@ -26,8 +26,10 @@ Access GAPI at: `http://localhost:8000/gapi/api/hello`
 Run GAPI independently:
 
 ```bash
-# From services/gapi directory
-pip install -r requirements.txt
+# Install dependencies from repo root
+pip install -r ../../requirements.txt
+
+# Run from services/gapi directory
 uvicorn main:app --reload --port 8000
 ```
 

@@ -26,8 +26,10 @@ Access Order Service at: `http://localhost:8000/order_service/internal/hello`
 Run Order Service independently:
 
 ```bash
-# From services/order_service directory
-pip install -r requirements.txt
+# Install dependencies from repo root
+pip install -r ../../requirements.txt
+
+# Run from services/order_service directory
 uvicorn main:app --reload --port 8001
 ```
 

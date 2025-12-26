@@ -1,0 +1,156 @@
+import re
+import time
+from shared.observability.context import (
+    RequestContext,
+    generate_trace_id,
+    generate_request_id,
+    is_valid_trace_id,
+    is_valid_request_id,
+    TRACE_ID_PATTERN,
+    REQUEST_ID_PATTERN
+)
+
+
+def test_generate_trace_id_format():
+    """Test that generated trace_id matches the expected format."""
+    trace_id = generate_trace_id()
+    
+    assert trace_id.startswith('t')
+    assert len(trace_id) == 23
+    assert TRACE_ID_PATTERN.match(trace_id)
+
+
+def test_generate_request_id_format():
+    """Test that generated request_id matches the expected format."""
+    request_id = generate_request_id()
+    
+    assert request_id.startswith('r')
+    assert len(request_id) == 23
+    assert REQUEST_ID_PATTERN.match(request_id)
+
+
+def test_generate_trace_id_contains_timestamp():
+    """Test that trace_id contains current timestamp."""
+    before = int(time.time())
+    trace_id = generate_trace_id()
+    after = int(time.time())
+    
+    timestamp_str = trace_id[1:11]
+    timestamp = int(timestamp_str)
+    
+    assert before <= timestamp <= after
+
+
+def test_generate_request_id_contains_timestamp():
+    """Test that request_id contains current timestamp."""
+    before = int(time.time())
+    request_id = generate_request_id()
+    after = int(time.time())
+    
+    timestamp_str = request_id[1:11]
+    timestamp = int(timestamp_str)
+    
+    assert before <= timestamp <= after
+
+
+def test_generate_trace_id_has_random_hex():
+    """Test that trace_id has 12 random hexadecimal characters."""
+    trace_id = generate_trace_id()
+    
+    random_part = trace_id[11:]
+    assert len(random_part) == 12
+    assert all(c in '0123456789abcdef' for c in random_part)
+
+
+def test_generate_request_id_has_random_hex():
+    """Test that request_id has 12 random hexadecimal characters."""
+    request_id = generate_request_id()
+    
+    random_part = request_id[11:]
+    assert len(random_part) == 12
+    assert all(c in '0123456789abcdef' for c in random_part)
+
+
+def test_generate_trace_id_uniqueness():
+    """Test that consecutive trace_ids are unique."""
+    id1 = generate_trace_id()
+    id2 = generate_trace_id()
+    
+    assert id1 != id2
+
+
+def test_generate_request_id_uniqueness():
+    """Test that consecutive request_ids are unique."""
+    id1 = generate_request_id()
+    id2 = generate_request_id()
+    
+    assert id1 != id2
+
+
+def test_is_valid_trace_id_valid():
+    """Test validation of valid trace_id."""
+    assert is_valid_trace_id('t1735228800a1b2c3d4e5f6')
+    assert is_valid_trace_id('t1234567890abcdef123456')
+
+
+def test_is_valid_trace_id_invalid():
+    """Test validation of invalid trace_id."""
+    assert not is_valid_trace_id('t-1735228800-abc')
+    assert not is_valid_trace_id('r1735228800a1b2c3d4e5f6')
+    assert not is_valid_trace_id('t1735228800')
+    assert not is_valid_trace_id('t1735228800ABC')
+    assert not is_valid_trace_id('trace-123')
+    assert not is_valid_trace_id('t173522880')
+    assert not is_valid_trace_id('t1735228800a1b2c3d4e5f6g')
+
+
+def test_is_valid_request_id_valid():
+    """Test validation of valid request_id."""
+    assert is_valid_request_id('r1735228800f6e5d4c3b2a1')
+    assert is_valid_request_id('r1234567890fedcba987654')
+
+
+def test_is_valid_request_id_invalid():
+    """Test validation of invalid request_id."""
+    assert not is_valid_request_id('r-1735228800-abc')
+    assert not is_valid_request_id('t1735228800f6e5d4c3b2a1')
+    assert not is_valid_request_id('r1735228800')
+    assert not is_valid_request_id('r1735228800ABC')
+    assert not is_valid_request_id('request-123')
+    assert not is_valid_request_id('r173522880')
+    assert not is_valid_request_id('r1735228800f6e5d4c3b2a1g')
+
+
+def test_request_context_creation():
+    """Test creating RequestContext with new ID format."""
+    ctx = RequestContext(
+        trace_id='t1735228800a1b2c3d4e5f6',
+        trace_source='GAPI:/api/orders',
+        request_id='r1735228800f6e5d4c3b2a1',
+        request_source='ORDER_SERVICE:/internal/orders'
+    )
+    
+    assert ctx.trace_id == 't1735228800a1b2c3d4e5f6'
+    assert ctx.trace_source == 'GAPI:/api/orders'
+    assert ctx.request_id == 'r1735228800f6e5d4c3b2a1'
+    assert ctx.request_source == 'ORDER_SERVICE:/internal/orders'
+
+
+def test_request_context_to_dict():
+    """Test converting RequestContext to dictionary."""
+    ctx = RequestContext(
+        trace_id='t1735228800a1b2c3d4e5f6',
+        trace_source='GAPI:/api/orders',
+        request_id='r1735228800f6e5d4c3b2a1',
+        request_source='ORDER_SERVICE:/internal/orders'
+    )
+    
+    result = ctx.to_dict()
+    
+    assert result == {
+        'trace_id': 't1735228800a1b2c3d4e5f6',
+        'trace_source': 'GAPI:/api/orders',
+        'request_id': 'r1735228800f6e5d4c3b2a1',
+        'request_source': 'ORDER_SERVICE:/internal/orders'
+    }
+

@@ -1,12 +1,6 @@
-import uuid
 from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from .context import RequestContext
-
-
-def generate_id(prefix: str) -> str:
-    """Generate a unique ID with given prefix."""
-    return f"{prefix}-{uuid.uuid4().hex[:8]}"
+from .context import RequestContext, generate_trace_id, generate_request_id
 
 
 class ContextMiddleware(BaseHTTPMiddleware):
@@ -25,8 +19,8 @@ class ContextMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
         # Extract or generate tracing IDs
-        trace_id = request.headers.get('X-Trace-Id') or generate_id('t')
-        request_id = request.headers.get('X-Request-Id') or generate_id('r')
+        trace_id = request.headers.get('X-Trace-Id') or generate_trace_id()
+        request_id = request.headers.get('X-Request-Id') or generate_request_id()
 
         endpoint = f"{request.url.path}"
         trace_source = request.headers.get('X-Trace-Source') or f"{self.service_name.upper()}:{endpoint}"

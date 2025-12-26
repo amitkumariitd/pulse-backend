@@ -43,13 +43,15 @@ def test_health_endpoint_generates_tracing_headers_when_missing():
     """Test health endpoint generates tracing headers if not provided"""
     # Act
     response = client.get("/health")
-    
+
     # Assert
     assert response.status_code == 200
     assert "X-Request-Id" in response.headers
     assert "X-Trace-Id" in response.headers
-    assert response.headers["X-Request-Id"].startswith("r-")
-    assert response.headers["X-Trace-Id"].startswith("t-")
+    assert response.headers["X-Request-Id"].startswith("r")
+    assert response.headers["X-Trace-Id"].startswith("t")
+    assert len(response.headers["X-Request-Id"]) == 23
+    assert len(response.headers["X-Trace-Id"]) == 23
 
 
 def test_hello_endpoint_success():

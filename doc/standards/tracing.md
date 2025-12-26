@@ -41,9 +41,24 @@ Mandatory enforcement lives in `RULES.md`.
 - Shared across sync and async flows
 - `trace_source` defines where the trace started
 
-Example:
-trace_id = t8fa21c9d
+**Format:** `t` + Unix timestamp (seconds) + 12 hexadecimal characters
+
+**Example:**
+```
+trace_id = t1735228800a1b2c3d4e5f6
 trace_source = GAPI:create_order
+```
+
+**Breakdown:**
+- `t` = prefix (identifies this as a trace ID)
+- `1735228800` = Unix timestamp in seconds (Dec 26, 2024 16:00:00 UTC)
+- `a1b2c3d4e5f6` = 12 random hexadecimal characters (for uniqueness)
+
+**Benefits:**
+- Sortable by time (timestamp first)
+- Globally unique (281 trillion combinations per second)
+- Easy to extract timestamp for debugging
+- Shorter than UUID (23 characters vs 36)
 
 ---
 
@@ -53,9 +68,72 @@ trace_source = GAPI:create_order
 - Propagated across **all synchronous service calls**
 - `request_source` identifies the service and endpoint that accepted the request
 
-Example:
-request_id = r-912873
+**Format:** `r` + Unix timestamp (seconds) + 12 hexadecimal characters
+
+**Example:**
+```
+request_id = r1735228800f6e5d4c3b2a1
 request_source = GAPI:create_order
+```
+
+**Breakdown:**
+- `r` = prefix (identifies this as a request ID)
+- `1735228800` = Unix timestamp in seconds (Dec 26, 2024 16:00:00 UTC)
+- `f6e5d4c3b2a1` = 12 random hexadecimal characters (for uniqueness)
+
+**Benefits:**
+- Same format as trace_id for consistency
+- Sortable by time
+- Globally unique
+- Easy to correlate with trace_id by timestamp
+
+---
+
+## ID Generation
+
+### Generating trace_id
+
+```python
+import time
+import secrets
+
+def generate_trace_id() -> str:
+    timestamp = int(time.time())
+    random_hex = secrets.token_hex(6)  # 6 bytes = 12 hex chars
+    return f"t{timestamp}{random_hex}"
+
+# Example: t1735228800a1b2c3d4e5f6
+```
+
+### Generating request_id
+
+```python
+import time
+import secrets
+
+def generate_request_id() -> str:
+    timestamp = int(time.time())
+    random_hex = secrets.token_hex(6)  # 6 bytes = 12 hex chars
+    return f"r{timestamp}{random_hex}"
+
+# Example: r1735228800f6e5d4c3b2a1
+```
+
+### Validation
+
+IDs must match the pattern:
+- `trace_id`: `^t\d{10}[0-9a-f]{12}$`
+- `request_id`: `^r\d{10}[0-9a-f]{12}$`
+
+**Valid:**
+- `t1735228800a1b2c3d4e5f6` ✅
+- `r1735228800f6e5d4c3b2a1` ✅
+
+**Invalid:**
+- `t-1735228800-abc` ❌ (wrong format)
+- `r1735228800` ❌ (missing random hex)
+- `t1735228800ABC` ❌ (uppercase hex not allowed)
+- `trace-123` ❌ (wrong format)
 
 ---
 

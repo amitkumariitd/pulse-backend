@@ -11,7 +11,7 @@ python -m pytest --cov=services --cov=shared --cov-report=html
 open htmlcov/index.html
 ```
 
-**Status**: 20/20 tests passing ✅
+**Status**: 34/34 tests passing ✅
 
 ---
 
@@ -45,12 +45,12 @@ python -m pytest tests/unit/services/gapi/test_health.py::test_health_returns_ok
 
 ```
 tests/
-├── unit/                           # Fast, isolated tests (8 tests)
+├── unit/                           # Fast, isolated tests (22 tests)
 │   ├── services/
 │   │   ├── gapi/                   # GAPI unit tests (4 tests)
 │   │   └── order_service/          # Order Service unit tests (4 tests)
 │   └── shared/
-│       ├── observability/          # Context, logger, middleware tests
+│       ├── observability/          # Context, logger, middleware tests (14 tests)
 │       └── http/                   # HTTP client tests
 └── integration/                    # End-to-end tests (12 tests)
     ├── services/
@@ -60,7 +60,7 @@ tests/
         └── observability/          # Cross-service integration tests
 ```
 
-**Total**: 20 tests, 100% passing
+**Total**: 34 tests, 100% passing
 
 ### Key Principles
 - **Mirrors project structure** - `shared/observability/context.py` → `tests/unit/shared/observability/test_context.py`

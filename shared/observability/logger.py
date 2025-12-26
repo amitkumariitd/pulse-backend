@@ -3,7 +3,7 @@ import logging
 import sys
 from datetime import datetime, timezone
 from typing import Any, Optional, Dict
-from .context import get_context
+from .context import RequestContext
 
 
 # Security: Keys that should never be logged
@@ -15,19 +15,11 @@ FORBIDDEN_KEYS = {
 
 class StructuredLogger:
     """
-    Structured JSON logger that automatically injects request context.
-
-    Context is automatically included from contextvars:
-    - trace_id, trace_source
-    - request_id, request_source
-    - user_id, client_id
-    - order_id, account_id
-    - metadata
+    Structured JSON logger that accepts RequestContext explicitly.
 
     Usage:
         logger = get_logger("my_service")
-        logger.info("Order created", data={"instrument": "NSE:RELIANCE"})
-        # Context automatically included in log output
+        logger.info("Order created", ctx, data={"instrument": "NSE:RELIANCE"})
     """
 
     def __init__(self, service_name: str):
@@ -47,13 +39,13 @@ class StructuredLogger:
             if k.lower() not in FORBIDDEN_KEYS
         }
 
-    def _log(self, level: str, message: str, **kwargs):
+    def _log(self, level: str, message: str, ctx: Optional[RequestContext] = None, **kwargs):
         """
-        Internal log method that auto-injects context.
+        Internal log method.
 
         Priority (later overrides earlier):
         1. Base fields (timestamp, level, service, message)
-        2. Auto-injected context from contextvars
+        2. Context fields (if ctx provided)
         3. User-provided kwargs
         """
         # Base log entry
@@ -64,9 +56,9 @@ class StructuredLogger:
             "message": message
         }
 
-        # Auto-inject context from contextvars
-        context = get_context()
-        log_entry.update(context)
+        # Include context if provided
+        if ctx:
+            log_entry.update(ctx.to_dict())
 
         # Sanitize and merge user-provided kwargs
         safe_kwargs = self._sanitize_kwargs(kwargs)
@@ -78,25 +70,25 @@ class StructuredLogger:
         log_method = getattr(self.logger, level.lower())
         log_method(log_line)
 
-    def debug(self, message: str, **kwargs):
-        """Log debug message with auto-injected context."""
-        self._log("DEBUG", message, **kwargs)
+    def debug(self, message: str, ctx: Optional[RequestContext] = None, **kwargs):
+        """Log debug message with context."""
+        self._log("DEBUG", message, ctx, **kwargs)
 
-    def info(self, message: str, **kwargs):
-        """Log info message with auto-injected context."""
-        self._log("INFO", message, **kwargs)
+    def info(self, message: str, ctx: Optional[RequestContext] = None, **kwargs):
+        """Log info message with context."""
+        self._log("INFO", message, ctx, **kwargs)
 
-    def warning(self, message: str, **kwargs):
-        """Log warning message with auto-injected context."""
-        self._log("WARNING", message, **kwargs)
+    def warning(self, message: str, ctx: Optional[RequestContext] = None, **kwargs):
+        """Log warning message with context."""
+        self._log("WARNING", message, ctx, **kwargs)
 
-    def error(self, message: str, **kwargs):
-        """Log error message with auto-injected context."""
-        self._log("ERROR", message, **kwargs)
+    def error(self, message: str, ctx: Optional[RequestContext] = None, **kwargs):
+        """Log error message with context."""
+        self._log("ERROR", message, ctx, **kwargs)
 
-    def critical(self, message: str, **kwargs):
-        """Log critical message with auto-injected context."""
-        self._log("CRITICAL", message, **kwargs)
+    def critical(self, message: str, ctx: Optional[RequestContext] = None, **kwargs):
+        """Log critical message with context."""
+        self._log("CRITICAL", message, ctx, **kwargs)
 
 
 def get_logger(service_name: str) -> StructuredLogger:

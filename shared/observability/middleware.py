@@ -1,7 +1,7 @@
 import uuid
-from fastapi import Request, Response
+from fastapi import Request
 from starlette.middleware.base import BaseHTTPMiddleware
-from .context import set_context, clear_context, get_context
+from .context import RequestContext
 
 
 def generate_id(prefix: str) -> str:
@@ -11,13 +11,10 @@ def generate_id(prefix: str) -> str:
 
 class ContextMiddleware(BaseHTTPMiddleware):
     """
-    Middleware that extracts request context from headers and makes it available
-    throughout the request lifecycle via contextvars.
+    Middleware that creates RequestContext from headers and attaches it to request.state.
 
-    Extracts:
-    - Tracing: X-Trace-Id, X-Request-Id, X-Trace-Source, X-Request-Source
-    - Identity: X-User-Id, X-Client-Id
-    - Domain: X-Order-Id, X-Account-Id
+    Extracts tracing headers:
+    - X-Trace-Id, X-Request-Id, X-Trace-Source, X-Request-Source
 
     Generates trace_id and request_id if not provided.
     """
@@ -27,7 +24,7 @@ class ContextMiddleware(BaseHTTPMiddleware):
         self.service_name = service_name
 
     async def dispatch(self, request: Request, call_next):
-        # Extract or generate tracing context
+        # Extract or generate tracing IDs
         trace_id = request.headers.get('X-Trace-Id') or generate_id('t')
         request_id = request.headers.get('X-Request-Id') or generate_id('r')
 
@@ -35,25 +32,16 @@ class ContextMiddleware(BaseHTTPMiddleware):
         trace_source = request.headers.get('X-Trace-Source') or f"{self.service_name.upper()}:{endpoint}"
         request_source = f"{self.service_name.upper()}:{endpoint}"
 
-        # Extract identity context
-        user_id = request.headers.get('X-User-Id')
-        client_id = request.headers.get('X-Client-Id')
-
-        # Extract domain context
-        order_id = request.headers.get('X-Order-Id')
-        account_id = request.headers.get('X-Account-Id')
-
-        # Set all context
-        set_context(
+        # Create RequestContext object
+        ctx = RequestContext(
             trace_id=trace_id,
             trace_source=trace_source,
             request_id=request_id,
-            request_source=request_source,
-            user_id=user_id,
-            client_id=client_id,
-            order_id=order_id,
-            account_id=account_id
+            request_source=request_source
         )
+
+        # Attach context to request state
+        request.state.context = ctx
 
         # Process request
         response = await call_next(request)
@@ -61,9 +49,6 @@ class ContextMiddleware(BaseHTTPMiddleware):
         # Add tracing headers to response
         response.headers['X-Trace-Id'] = trace_id
         response.headers['X-Request-Id'] = request_id
-
-        # Cleanup context
-        clear_context()
 
         return response
 

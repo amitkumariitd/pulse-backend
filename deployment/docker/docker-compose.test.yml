@@ -23,7 +23,7 @@ services:
   test:
     build:
       context: .
-      dockerfile: Dockerfile
+      dockerfile: deployment/docker/Dockerfile
       target: development
     container_name: pulse-test-runner
     environment:

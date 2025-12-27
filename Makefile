@@ -7,6 +7,7 @@
 DOCKER_DIR := deployment/docker
 COMPOSE_FILE := $(DOCKER_DIR)/docker-compose.yml
 COMPOSE_TEST_FILE := $(DOCKER_DIR)/docker-compose.test.yml
+COMPOSE_FLAGS := --project-directory . -f
 
 # Default target
 help:
@@ -36,33 +37,33 @@ help:
 
 # Development commands
 up:
-	docker-compose -f $(COMPOSE_FILE) up -d
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_FILE) up -d
 	@echo "Services started. Access app at http://localhost:8000/health"
 
 down:
-	docker-compose -f $(COMPOSE_FILE) down
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_FILE) down
 
 restart:
-	docker-compose -f $(COMPOSE_FILE) restart
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_FILE) restart
 
 logs:
-	docker-compose -f $(COMPOSE_FILE) logs -f app
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_FILE) logs -f app
 
 build:
-	docker-compose -f $(COMPOSE_FILE) build
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_FILE) build
 
 # Testing commands
 test:
-	docker-compose -f $(COMPOSE_TEST_FILE) up --abort-on-container-exit --remove-orphans
-	docker-compose -f $(COMPOSE_TEST_FILE) down -v
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_TEST_FILE) up --abort-on-container-exit --remove-orphans
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_TEST_FILE) down -v
 
 test-unit:
-	docker-compose -f $(COMPOSE_TEST_FILE) run --rm test python -m pytest tests/unit/ -v
-	docker-compose -f $(COMPOSE_TEST_FILE) down -v
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_TEST_FILE) run --rm test python -m pytest tests/unit/ -v
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_TEST_FILE) down -v
 
 test-int:
-	docker-compose -f $(COMPOSE_TEST_FILE) run --rm test python -m pytest tests/integration/ -v
-	docker-compose -f $(COMPOSE_TEST_FILE) down -v
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_TEST_FILE) run --rm test python -m pytest tests/integration/ -v
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_TEST_FILE) down -v
 
 # Database commands
 db-shell:
@@ -73,8 +74,8 @@ db-reset:
 	@read -p "Are you sure? [y/N] " -n 1 -r; \
 	echo; \
 	if [[ $$REPLY =~ ^[Yy]$$ ]]; then \
-		docker-compose -f $(COMPOSE_FILE) down -v; \
-		docker-compose -f $(COMPOSE_FILE) up -d postgres; \
+		docker-compose $(COMPOSE_FLAGS) $(COMPOSE_FILE) down -v; \
+		docker-compose $(COMPOSE_FLAGS) $(COMPOSE_FILE) up -d postgres; \
 		echo "Database reset complete"; \
 	fi
 
@@ -83,12 +84,12 @@ shell:
 	docker exec -it pulse-backend /bin/bash
 
 clean:
-	docker-compose -f $(COMPOSE_FILE) down -v --remove-orphans
-	docker-compose -f $(COMPOSE_TEST_FILE) down -v --remove-orphans
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_FILE) down -v --remove-orphans
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_TEST_FILE) down -v --remove-orphans
 	@echo "All containers and volumes removed"
 
 ps:
-	docker-compose -f $(COMPOSE_FILE) ps
+	docker-compose $(COMPOSE_FLAGS) $(COMPOSE_FILE) ps
 
 # Production build
 prod-build:

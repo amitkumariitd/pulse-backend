@@ -1,0 +1,97 @@
+{
+  "info": {
+    "name": "Pulse Backend API",
+    "description": "API collection for pulse-backend (GAPI + Pulse services)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Health Checks",
+      "item": [
+        {
+          "name": "Main Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "GAPI Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/gapi/health",
+              "host": ["{{base_url}}"],
+              "path": ["gapi", "health"]
+            }
+          },
+          "response": []
+        },
+        {
+          "name": "Pulse Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/pulse/health",
+              "host": ["{{base_url}}"],
+              "path": ["pulse", "health"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "GAPI Endpoints",
+      "item": [
+        {
+          "name": "GAPI Hello",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/gapi/api/hello",
+              "host": ["{{base_url}}"],
+              "path": ["gapi", "api", "hello"]
+            }
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pulse Endpoints",
+      "item": [
+        {
+          "name": "Pulse Hello",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/pulse/internal/hello",
+              "host": ["{{base_url}}"],
+              "path": ["pulse", "internal", "hello"]
+            }
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
+

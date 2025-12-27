@@ -1,0 +1,62 @@
+version: '3.8'
+
+services:
+  # PostgreSQL for testing
+  postgres-test:
+    image: postgres:15-alpine
+    container_name: pulse-postgres-test
+    environment:
+      POSTGRES_USER: pulse_test
+      POSTGRES_PASSWORD: test_password
+      POSTGRES_DB: pulse_test
+    ports:
+      - "5433:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse_test"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - pulse-test-network
+
+  # Test runner
+  test:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: pulse-test-runner
+    environment:
+      # Core
+      ENVIRONMENT: local
+      SERVICE_NAME: pulse-backend
+      
+      # HTTP server
+      APP_HOST: 0.0.0.0
+      APP_PORT: 8000
+      
+      # Logging
+      LOG_LEVEL: DEBUG
+      TRACING_ENABLED: "false"
+      
+      # Test Database
+      PULSE_DB_HOST: postgres-test
+      PULSE_DB_PORT: 5432
+      PULSE_DB_USER: pulse_test
+      PULSE_DB_PASSWORD: test_password
+      PULSE_DB_NAME: pulse_test
+    volumes:
+      - .:/app
+      - /app/venv
+      - /app/.venv
+    depends_on:
+      postgres-test:
+        condition: service_healthy
+    networks:
+      - pulse-test-network
+    command: python -m pytest -v --cov=gapi --cov=pulse --cov=shared --cov-report=term-missing
+
+networks:
+  pulse-test-network:
+    driver: bridge
+

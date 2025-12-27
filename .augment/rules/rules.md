@@ -64,10 +64,23 @@ Folders represent services. Code represents domain concepts.
 
 ## Persistence rules
 
-- Use repository interfaces for persistence.
+**Repository Pattern (mandatory):**
+- Use repository interfaces for ALL persistence.
 - Do NOT access storage directly from API routes.
 - No shared database assumptions across services.
 - In-memory storage is acceptable in v1, but must be swappable.
+
+**PostgreSQL Standards (mandatory):**
+
+All database code MUST follow `.augment/rules/postgres.md`. Key requirements:
+
+- Use repository pattern for all database access
+- Include `trace_id` and `request_id` in all writes
+- Use parameterized queries (never string interpolation)
+- Use connection pooling with asyncpg
+- Use Alembic for schema migrations
+
+See `.augment/rules/postgres.md` for detailed enforcement rules.
 
 ---
 

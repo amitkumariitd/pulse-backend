@@ -4,6 +4,12 @@ Trading backend monorepo with two components:
 - **GAPI**: External-facing gateway API
 - **Pulse**: Internal order management service
 
+## Requirements
+
+- **Python 3.12+**
+- **PostgreSQL 15+** (for production)
+- **Docker** (optional, for containerized development)
+
 ## Quick Start (Single Deployable)
 
 Run both components together in a single process:

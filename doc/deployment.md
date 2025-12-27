@@ -6,10 +6,11 @@ Complete guide for local development, testing, debugging, and deployment using D
 
 ## Prerequisites
 
-- Docker Desktop (Mac/Windows) or Docker Engine (Linux)
-- Docker Compose v2.0+
-- Git
-- Postman (for API testing)
+- **Docker Desktop** (Mac/Windows) or **Docker Engine** (Linux)
+- **Docker Compose** v2.0+
+- **Python 3.12+** (for local development without Docker)
+- **Git**
+- **Postman** (optional, for API testing)
 
 ---
 

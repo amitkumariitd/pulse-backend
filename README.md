@@ -9,10 +9,14 @@ Trading backend monorepo with two components:
 Run both components together in a single process:
 
 ```bash
-# Install dependencies
+# 1. Install dependencies
 pip install -r requirements.txt
 
-# Run unified app
+# 2. Set up local configuration
+cp .env.example .env.local
+# Edit .env.local and set PULSE_DB_PASSWORD and other local values
+
+# 3. Run unified app
 uvicorn main:app --reload --port 8000
 ```
 

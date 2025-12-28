@@ -29,12 +29,13 @@ Request context is a simple, immutable dataclass:
 ```python
 @dataclass(frozen=True)
 class RequestContext:
-    trace_id: str         # Global trace ID (e.g., "t1735228800a1b2c3d4e5f6")
-    trace_source: str     # Where trace started (e.g., "GAPI:POST/api/orders")
-    request_id: str       # Request ID (e.g., "r1735228800f6e5d4c3b2a1")
-    request_source: str   # Current service (e.g., "PULSE:POST/internal/orders")
-    span_id: str          # Span ID for this operation (e.g., "sa1b2c3d4")
-    span_source: str      # Service call path (e.g., "GAPI:POST/api/orders->PULSE:POST/internal/orders")
+    trace_id: str                    # Global trace ID (e.g., "t1735228800a1b2c3d4e5f6")
+    trace_source: str                # Where trace started (e.g., "GAPI:POST/api/orders")
+    request_id: str                  # Request ID (e.g., "r1735228800f6e5d4c3b2a1")
+    request_source: str              # Current service (e.g., "PULSE:POST/internal/orders")
+    span_id: str                     # Span ID for this operation (e.g., "sa1b2c3d4")
+    span_source: str                 # Service call path (e.g., "GAPI:POST/api/orders->PULSE:POST/internal/orders")
+    parent_span_id: Optional[str]    # Parent span ID (e.g., "sa1b2c3d4") - for span hierarchy
 ```
 
 ### Field Descriptions
@@ -45,8 +46,9 @@ class RequestContext:
 | `trace_source` | string | Service and endpoint where trace originated | `GAPI:POST/api/orders` |
 | `request_id` | string | Unique identifier for this request | `r1735228800f6e5d4c3b2a1` |
 | `request_source` | string | Current service and endpoint processing the request | `PULSE:POST/internal/orders` |
-| `span_id` | string | Identifier for this specific operation | `sa1b2c3d4` |
+| `span_id` | string | Identifier for this specific operation (always generated fresh) | `sa1b2c3d4` |
 | `span_source` | string | Service call path showing caller and target | `GAPI:POST/api/orders->PULSE:POST/internal/orders` |
+| `parent_span_id` | string (optional) | Span ID of the calling service (from X-Span-Id header) | `sa1b2c3d4` |
 
 ### Design Principles
 
@@ -69,13 +71,24 @@ class RequestContext:
 ### 1. Creation (Middleware)
 ```python
 # Middleware extracts headers and creates context
+# Incoming X-Span-Id is treated as parent_span_id
+parent_span_id = headers.get('X-Span-Id')  # From calling service
+parent_span_source = headers.get('X-Span-Source')
+
+# Build span_source by appending to parent's span_source
+if parent_span_source:
+    span_source = f"{parent_span_source}->GAPI:POST/api/orders"
+else:
+    span_source = "GAPI:POST/api/orders"
+
 ctx = RequestContext(
     trace_id=headers.get('X-Trace-Id') or generate_trace_id(),
     trace_source=headers.get('X-Trace-Source') or f"GAPI:POST/api/orders",
     request_id=headers.get('X-Request-Id') or generate_request_id(),
     request_source="GAPI:POST/api/orders",
-    span_id=generate_span_id(),  # Always generate new span_id
-    span_source=headers.get('X-Span-Source') or "GAPI:POST/api/orders"
+    span_id=generate_span_id(),  # Always generate NEW span_id
+    span_source=span_source,
+    parent_span_id=parent_span_id  # From X-Span-Id header
 )
 
 # Attach to request state
@@ -127,14 +140,25 @@ async def forward_to_pulse_service(order_data: dict, ctx: RequestContext):
     return response.json()
 
 # Pulse Service middleware recreates context from headers
+# Incoming X-Span-Id becomes parent_span_id
 # Generates NEW span_id for this service's operation
+parent_span_id = headers.get('X-Span-Id')  # GAPI's span_id
+parent_span_source = headers.get('X-Span-Source')
+
+# Build span_source by appending to parent
+if parent_span_source:
+    span_source = f"{parent_span_source}->PULSE:POST/internal/orders"
+else:
+    span_source = "PULSE:POST/internal/orders"
+
 ctx = RequestContext(
     trace_id=headers.get('X-Trace-Id'),
     trace_source=headers.get('X-Trace-Source'),
     request_id=headers.get('X-Request-Id'),
     request_source="PULSE:POST/internal/orders",
     span_id=generate_span_id(),  # NEW span for this service
-    span_source=headers.get('X-Span-Source') or "PULSE:POST/internal/orders"
+    span_source=span_source,
+    parent_span_id=parent_span_id  # GAPI's span_id
 )
 ```
 

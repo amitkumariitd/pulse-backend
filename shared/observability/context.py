@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, Optional
 from dataclasses import dataclass
 import time
 import secrets
@@ -107,6 +107,7 @@ class RequestContext:
     - request_source: Current service and endpoint (e.g., "ORDER_SERVICE:/internal/orders")
     - span_id: Span identifier for this operation (e.g., "sa1b2c3d4")
     - span_source: Service call path (e.g., "GAPI:POST/api/orders->PULSE:POST/internal/orders")
+    - parent_span_id: Parent span identifier (e.g., "sa1b2c3d4") - optional, for tracking span hierarchy
     """
     trace_id: str
     trace_source: str
@@ -114,10 +115,11 @@ class RequestContext:
     request_source: str
     span_id: str
     span_source: str
+    parent_span_id: Optional[str] = None
 
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary for logging."""
-        return {
+        result = {
             'trace_id': self.trace_id,
             'trace_source': self.trace_source,
             'request_id': self.request_id,
@@ -125,4 +127,7 @@ class RequestContext:
             'span_id': self.span_id,
             'span_source': self.span_source
         }
+        if self.parent_span_id:
+            result['parent_span_id'] = self.parent_span_id
+        return result
 

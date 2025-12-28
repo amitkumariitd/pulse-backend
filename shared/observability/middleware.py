@@ -11,10 +11,11 @@ class ContextMiddleware:
 
     Extracts tracing headers:
     - X-Trace-Id, X-Request-Id, X-Trace-Source, X-Request-Source
-    - X-Span-Id, X-Span-Source
+    - X-Span-Id (treated as parent_span_id), X-Span-Source
 
-    Generates trace_id, request_id, and span_id if not provided.
-    Always generates a new span_id for each incoming request.
+    Generates trace_id, request_id if not provided.
+    Always generates a NEW span_id for each incoming request.
+    Treats incoming X-Span-Id as parent_span_id for span hierarchy tracking.
     """
 
     def __init__(self, app: ASGIApp, service_name: str):
@@ -33,6 +34,9 @@ class ContextMiddleware:
         trace_id = request.headers.get('X-Trace-Id') or generate_trace_id()
         request_id = request.headers.get('X-Request-Id') or generate_request_id()
 
+        # Extract parent_span_id from incoming X-Span-Id header (if present)
+        parent_span_id = request.headers.get('X-Span-Id')
+
         # Always generate NEW span_id for this service's operation
         span_id = generate_span_id()
 
@@ -46,15 +50,22 @@ class ContextMiddleware:
         trace_source = trace_source_header or f"{self.service_name.upper()}:{endpoint_code}"
         request_source = f"{self.service_name.upper()}:{endpoint_code}"
 
-        # DONT Extract span_source from header or use request_source
-        span_source = request.headers.get('X-Span-Source') or request_source
+        # Build span_source: if we have parent span source, append current service
+        # Otherwise, just use current service
+        parent_span_source = request.headers.get('X-Span-Source')
+        if parent_span_source:
+            span_source = f"{parent_span_source}->{request_source}"
+        else:
+            span_source = request_source
 
         ctx = RequestContext(
             trace_id=trace_id,
             trace_source=trace_source,
             request_id=request_id,
             request_source=request_source,
-            span_id=span_id
+            span_id=span_id,
+            span_source=span_source,
+            parent_span_id=parent_span_id
         )
 
         # Attach context to scope state

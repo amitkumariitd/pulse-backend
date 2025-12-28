@@ -15,9 +15,8 @@ CREATE TABLE orders (
     -- Tracing columns (MANDATORY)
     trace_id VARCHAR(64) NOT NULL,
     request_id VARCHAR(64) NOT NULL,
-    tracing_source VARCHAR(50) NOT NULL,
-    request_source VARCHAR(50) NOT NULL,
-    
+    span_id VARCHAR(16) NOT NULL,
+
     -- Timestamp columns (MANDATORY)
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -31,6 +30,5 @@ CREATE INDEX idx_orders_created_at ON orders(created_at);
 COMMENT ON TABLE orders IS 'Order records with full tracing support';
 COMMENT ON COLUMN orders.trace_id IS 'Distributed tracing ID across services';
 COMMENT ON COLUMN orders.request_id IS 'Unique request identifier';
-COMMENT ON COLUMN orders.tracing_source IS 'Service that initiated the trace (e.g., gapi, pulse_api)';
-COMMENT ON COLUMN orders.request_source IS 'Service that made this request (e.g., pulse_background)';
+COMMENT ON COLUMN orders.span_id IS 'Span identifier for this operation';
 

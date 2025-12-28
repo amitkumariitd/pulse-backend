@@ -12,7 +12,7 @@ No endpoints are defined here.
 ### Request Headers
 
 #### Required (GAPI)
-- `Content-Type: application/json`
+- `Content-Type: application/json`√
 - `Idempotency-Key: <uuid>`
   Required for order creation to ensure idempotent processing.
 

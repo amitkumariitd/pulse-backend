@@ -29,20 +29,24 @@ Request context is a simple, immutable dataclass:
 ```python
 @dataclass(frozen=True)
 class RequestContext:
-    trace_id: str         # Global trace ID (e.g., "t-8fa21c9d")
-    trace_source: str     # Where trace started (e.g., "GAPI:/api/orders")
-    request_id: str       # Request ID (e.g., "r-912873")
-    request_source: str   # Current service (e.g., "ORDER_SERVICE:/internal/orders")
+    trace_id: str         # Global trace ID (e.g., "t1735228800a1b2c3d4e5f6")
+    trace_source: str     # Where trace started (e.g., "GAPI:POST/api/orders")
+    request_id: str       # Request ID (e.g., "r1735228800f6e5d4c3b2a1")
+    request_source: str   # Current service (e.g., "PULSE:POST/internal/orders")
+    span_id: str          # Span ID for this operation (e.g., "sa1b2c3d4")
+    span_source: str      # Service call path (e.g., "GAPI:POST/api/orders->PULSE:POST/internal/orders")
 ```
 
 ### Field Descriptions
 
 | Field | Type | Description | Example |
 |-------|------|-------------|---------|
-| `trace_id` | string | Global trace identifier for end-to-end tracing | `t-8fa21c9d` |
-| `trace_source` | string | Service and endpoint where trace originated | `GAPI:/api/orders` |
-| `request_id` | string | Unique identifier for this request | `r-912873` |
-| `request_source` | string | Current service and endpoint processing the request | `ORDER_SERVICE:/internal/orders` |
+| `trace_id` | string | Global trace identifier for end-to-end tracing | `t1735228800a1b2c3d4e5f6` |
+| `trace_source` | string | Service and endpoint where trace originated | `GAPI:POST/api/orders` |
+| `request_id` | string | Unique identifier for this request | `r1735228800f6e5d4c3b2a1` |
+| `request_source` | string | Current service and endpoint processing the request | `PULSE:POST/internal/orders` |
+| `span_id` | string | Identifier for this specific operation | `sa1b2c3d4` |
+| `span_source` | string | Service call path showing caller and target | `GAPI:POST/api/orders->PULSE:POST/internal/orders` |
 
 ### Design Principles
 
@@ -66,10 +70,12 @@ class RequestContext:
 ```python
 # Middleware extracts headers and creates context
 ctx = RequestContext(
-    trace_id=headers.get('X-Trace-Id') or generate_id('t'),
-    trace_source=headers.get('X-Trace-Source') or f"GAPI:/api/orders",
-    request_id=headers.get('X-Request-Id') or generate_id('r'),
-    request_source="GAPI:/api/orders"
+    trace_id=headers.get('X-Trace-Id') or generate_trace_id(),
+    trace_source=headers.get('X-Trace-Source') or f"GAPI:POST/api/orders",
+    request_id=headers.get('X-Request-Id') or generate_request_id(),
+    request_source="GAPI:POST/api/orders",
+    span_id=generate_span_id(),  # Always generate new span_id
+    span_source=headers.get('X-Span-Source') or "GAPI:POST/api/orders"
 )
 
 # Attach to request state
@@ -106,11 +112,12 @@ async def process_order(order_data: dict, ctx: RequestContext):
 
 ### 3. Cross-Service (HTTP Headers)
 ```python
-# GAPI calls Order Service
-async def forward_to_order_service(order_data: dict, ctx: RequestContext):
+# GAPI calls Pulse Service
+async def forward_to_pulse_service(order_data: dict, ctx: RequestContext):
     client = ContextPropagatingClient("http://localhost:8001")
 
     # Client extracts context and adds headers
+    # Headers: X-Trace-Id, X-Request-Id, X-Span-Id, X-Span-Source, etc.
     response = await client.post(
         "/internal/orders",
         json=order_data,
@@ -119,12 +126,15 @@ async def forward_to_order_service(order_data: dict, ctx: RequestContext):
 
     return response.json()
 
-# Order Service middleware recreates context from headers
+# Pulse Service middleware recreates context from headers
+# Generates NEW span_id for this service's operation
 ctx = RequestContext(
     trace_id=headers.get('X-Trace-Id'),
     trace_source=headers.get('X-Trace-Source'),
     request_id=headers.get('X-Request-Id'),
-    request_source="ORDER_SERVICE:/internal/orders"
+    request_source="PULSE:POST/internal/orders",
+    span_id=generate_span_id(),  # NEW span for this service
+    span_source=headers.get('X-Span-Source') or "PULSE:POST/internal/orders"
 )
 ```
 
@@ -141,6 +151,8 @@ When making HTTP calls, propagate context via headers:
 | `trace_source` | `X-Trace-Source` |
 | `request_id` | `X-Request-Id` |
 | `request_source` | `X-Request-Source` |
+| `span_id` | `X-Span-Id` |
+| `span_source` | `X-Span-Source` |
 
 ### Rule 2: Function Parameters
 Context MUST be passed as an explicit parameter:
@@ -163,12 +175,19 @@ logger.info("Order created", ctx)
 ```
 
 ### Rule 4: Database Writes
-All writes SHOULD include tracing fields for audit trail:
+All writes MUST include tracing fields for audit trail:
 
 ```python
+# Regular tables: trace_id, request_id, span_id
 await db.execute(
-    "INSERT INTO orders (id, trace_id, request_id) VALUES ($1, $2, $3)",
-    order.id, ctx.trace_id, ctx.request_id
+    "INSERT INTO orders (id, trace_id, request_id, span_id) VALUES ($1, $2, $3, $4)",
+    order.id, ctx.trace_id, ctx.request_id, ctx.span_id
+)
+
+# Async-initiating tables: also include trace_source
+await db.execute(
+    "INSERT INTO events (id, trace_id, trace_source, request_id, span_id) VALUES ($1, $2, $3, $4, $5)",
+    event.id, ctx.trace_id, ctx.trace_source, ctx.request_id, ctx.span_id
 )
 ```
 
@@ -179,7 +198,10 @@ When queuing async tasks, include context in message payload:
 await queue.publish({
     "order_id": order.id,
     "trace_id": ctx.trace_id,
-    "request_id": ctx.request_id
+    "trace_source": ctx.trace_source,
+    "request_id": ctx.request_id,
+    "span_id": ctx.span_id,
+    "span_source": ctx.span_source
 })
 ```
 
@@ -199,10 +221,12 @@ Context is **immutable** - it cannot be changed after creation.
 ```python
 # Context created at ingress
 ctx = RequestContext(
-    trace_id="t-abc",
-    trace_source="GAPI:/api/orders",
-    request_id="r-xyz",
-    request_source="GAPI:/api/orders"
+    trace_id="t1735228800a1b2c3d4e5f6",
+    trace_source="GAPI:POST/api/orders",
+    request_id="r1735228800f6e5d4c3b2a1",
+    request_source="GAPI:POST/api/orders",
+    span_id="sa1b2c3d4",
+    span_source="GAPI:POST/api/orders"
 )
 
 # Cannot modify
@@ -216,8 +240,8 @@ ctx.trace_id = "t-new"  # Error: frozen dataclass
 ## Security Rules
 
 **Context contains only tracing IDs:**
-- ✅ `trace_id`, `request_id` - Safe to log
-- ✅ `trace_source`, `request_source` - Safe to log
+- ✅ `trace_id`, `request_id`, `span_id` - Safe to log
+- ✅ `trace_source`, `request_source`, `span_source` - Safe to log
 
 **NEVER include in context:**
 - ❌ Passwords or credentials

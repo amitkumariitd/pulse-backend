@@ -25,8 +25,10 @@
 **Required columns** (every table):
 - `trace_id` - Distributed tracing ID
 - `request_id` - Request identifier
-- `tracing_source` - Originating service
-- `request_source` - Requesting service
+- `span_id` - Span identifier for this operation
+
+**Additional columns** (async-initiating tables only):
+- `trace_source` - Where the trace originated (needed for async continuation)
 
 **Example**: `doc/examples/postgres/01-basic-table.sql`
 
@@ -70,7 +72,10 @@
 ### Required Columns (All Tables)
 - `id` - Primary key
 - `created_at`, `updated_at` - Timestamps
-- `trace_id`, `request_id`, `tracing_source`, `request_source` - Tracing
+- `trace_id`, `request_id`, `span_id` - Tracing
+
+### Additional Columns (Async-Initiating Tables)
+- `trace_source` - Origin of the trace (needed for async processes to continue the trace)
 
 ### Required Indexes
 - Primary key (automatic)

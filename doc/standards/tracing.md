@@ -30,6 +30,8 @@ Mandatory enforcement lives in `RULES.md`.
 | trace_source | Origin of the trace                            |
 | request_id | Synchronous request identifier (starts with `r`) |
 | request_source | Origin of the request                          |
+| span_id | Individual operation identifier (starts with `s`) |
+| span_source | Service call path for the span                 |
 
 ---
 
@@ -59,6 +61,32 @@ trace_source = GAPI:POST/api/orders
 - Globally unique (281 trillion combinations per second)
 - Easy to extract timestamp for debugging
 - Shorter than UUID (23 characters vs 36)
+
+---
+
+### span_id & span_source
+- `span_id` starts with `s`
+- Generated for each individual operation or service call
+- New span_id created when receiving HTTP requests
+- `span_source` shows the service call path
+
+**Format:** `s` + 8 hexadecimal characters
+
+**Example:**
+```
+span_id = sa1b2c3d4
+span_source = GAPI:POST/api/orders->PULSE:POST/internal/orders
+```
+
+**Breakdown:**
+- `s` = prefix (identifies this as a span ID)
+- `a1b2c3d4` = 8 random hexadecimal characters (for uniqueness)
+
+**Benefits:**
+- Compact format (9 characters)
+- Globally unique (4.3 billion combinations)
+- Tracks individual operations within a request
+- Shows service call hierarchy
 
 ---
 
@@ -155,44 +183,65 @@ def generate_request_id() -> str:
 # Example: r1735228800f6e5d4c3b2a1
 ```
 
+### Generating span_id
+
+```python
+import secrets
+
+def generate_span_id() -> str:
+    random_hex = secrets.token_hex(4)  # 4 bytes = 8 hex chars
+    return f"s{random_hex}"
+
+# Example: sa1b2c3d4
+```
+
 ### Validation
 
 IDs must match the pattern:
 - `trace_id`: `^t\d{10}[0-9a-f]{12}$`
 - `request_id`: `^r\d{10}[0-9a-f]{12}$`
+- `span_id`: `^s[0-9a-f]{8}$`
 
 **Valid:**
 - `t1735228800a1b2c3d4e5f6` ✅
 - `r1735228800f6e5d4c3b2a1` ✅
+- `sa1b2c3d4` ✅
 
 **Invalid:**
 - `t-1735228800-abc` ❌ (wrong format)
 - `r1735228800` ❌ (missing random hex)
 - `t1735228800ABC` ❌ (uppercase hex not allowed)
 - `trace-123` ❌ (wrong format)
+- `s123` ❌ (span_id must be 8 hex chars)
+- `sABCD1234` ❌ (uppercase hex not allowed)
 
 ---
 
 ## Request Flow (Simplified)
 
-### Ingress
+### Ingress (Middleware)
 - Continue trace if present, else create new `trace_id`
 - Generate `request_id` if missing
+- Generate new `span_id` for this operation
 - Set all corresponding sources
 
 ---
 
-### Synchronous Service Calls
-- Propagate:
+### Synchronous Service Calls (HTTP)
+- Sender propagates via headers:
   - `trace_id` + `trace_source`
   - `request_id` + `request_source`
+  - `span_id` + `span_source`
+- Receiver generates NEW `span_id` for its operation
+- Receiver extracts `span_source` from header or constructs from request_source
 
 ---
 
 ### Asynchronous Processing (Messaging System)
-- Propagate:
+- Propagate in message:
   - `trace_id` + `trace_source`
   - `request_id` + `request_source`
+  - `span_id` + `span_source`
 
 ---
 

@@ -6,10 +6,11 @@ from shared.observability.context import get_context
 class ContextPropagatingClient:
     """
     HTTP client that automatically propagates request context via headers.
-    
+
     Automatically adds headers for:
     - Tracing: X-Trace-Id, X-Request-Id, X-Trace-Source, X-Request-Source
-    
+    - Span: X-Span-Id, X-Span-Source
+
     Usage:
         client = ContextPropagatingClient("http://localhost:8001")
         response = await client.post("/internal/orders", json=order_data)
@@ -24,19 +25,21 @@ class ContextPropagatingClient:
         """Add context to headers."""
         headers = headers or {}
         context = get_context()
-        
+
         # Map context fields to HTTP headers
         header_mapping = {
             'trace_id': 'X-Trace-Id',
             'trace_source': 'X-Trace-Source',
             'request_id': 'X-Request-Id',
-            'request_source': 'X-Request-Source'
+            'request_source': 'X-Request-Source',
+            'span_id': 'X-Span-Id',
+            'span_source': 'X-Span-Source'
         }
-        
+
         for ctx_key, header_key in header_mapping.items():
             if ctx_key in context and context[ctx_key]:
                 headers[header_key] = context[ctx_key]
-        
+
         return headers
     
     async def get(self, path: str, **kwargs) -> httpx.Response:

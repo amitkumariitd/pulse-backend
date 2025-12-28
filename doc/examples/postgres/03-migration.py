@@ -30,8 +30,7 @@ def upgrade():
             status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            tracing_source VARCHAR(50) NOT NULL,
-            request_source VARCHAR(50) NOT NULL,
+            span_id VARCHAR(16) NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )

@@ -58,16 +58,7 @@ tracing_source VARCHAR(50) NOT NULL,
 request_source VARCHAR(50) NOT NULL
 ```
 
-**Required in every INSERT/UPDATE:**
-```python
-await conn.execute(
-    """
-    INSERT INTO orders (..., trace_id, request_id, tracing_source, request_source)
-    VALUES (..., $6, $7, $8, $9)
-    """,
-    ..., ctx.trace_id, ctx.request_id, ctx.tracing_source, ctx.request_source
-)
-```
+**Required in every INSERT/UPDATE/DELETE:**
 
 ### Query Safety (mandatory)
 

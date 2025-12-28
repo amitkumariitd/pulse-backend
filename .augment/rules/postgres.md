@@ -46,20 +46,20 @@ class OrderRepository(BaseRepository):
 
 ### Tracing (non-negotiable)
 
-- ALL tables MUST have `trace_id`, `request_id`, and `span_id` columns
-- Async-initiating tables MUST also have `trace_source` column
+- ALL tables MUST have `request_id` and `span_id` columns
+- Async-initiating tables MUST also have `trace_id` and `trace_source` columns
 - ALL database writes MUST include tracing values from `RequestContext`
 - Pass `RequestContext` to ALL repository methods
 
 **Required columns in every table:**
 ```sql
-trace_id VARCHAR(64) NOT NULL,
 request_id VARCHAR(64) NOT NULL,
 span_id VARCHAR(16) NOT NULL
 ```
 
 **Additional columns for async-initiating tables:**
 ```sql
+trace_id VARCHAR(64) NOT NULL,
 trace_source VARCHAR(50) NOT NULL
 ```
 
@@ -93,16 +93,15 @@ await conn.execute(
 - `id` - Primary key (VARCHAR or UUID)
 - `created_at` - TIMESTAMPTZ NOT NULL DEFAULT NOW()
 - `updated_at` - TIMESTAMPTZ NOT NULL DEFAULT NOW()
-- `trace_id` - VARCHAR(64) NOT NULL
 - `request_id` - VARCHAR(64) NOT NULL
 - `span_id` - VARCHAR(16) NOT NULL
 
 **Additional columns for async-initiating tables:**
+- `trace_id` - VARCHAR(64) NOT NULL
 - `trace_source` - VARCHAR(50) NOT NULL
 
 **Required indexes:**
 - Primary key index (automatic)
-- Index on `trace_id` for tracing queries
 - Indexes on foreign keys
 - Indexes on frequently filtered columns
 

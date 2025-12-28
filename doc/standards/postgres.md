@@ -23,11 +23,11 @@
 **Why**: Debug across services, audit trail
 
 **Required columns** (every table):
-- `trace_id` - Distributed tracing ID
 - `request_id` - Request identifier
 - `span_id` - Span identifier for this operation
 
 **Additional columns** (async-initiating tables only):
+- `trace_id` - Distributed tracing ID (needed for async continuation)
 - `trace_source` - Where the trace originated (needed for async continuation)
 
 **Example**: `doc/examples/postgres/01-basic-table.sql`

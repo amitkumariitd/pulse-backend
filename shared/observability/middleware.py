@@ -11,11 +11,12 @@ class ContextMiddleware:
 
     Extracts tracing headers:
     - X-Trace-Id, X-Request-Id, X-Trace-Source, X-Request-Source
-    - X-Span-Id (treated as parent_span_id), X-Span-Source
+    - X-Parent-Span-Id (treated as parent_span_id)
 
     Generates trace_id, request_id if not provided.
     Always generates a NEW span_id for each incoming request.
-    Treats incoming X-Span-Id as parent_span_id for span hierarchy tracking.
+    Treats incoming X-Parent-Span-Id as parent_span_id for span hierarchy tracking.
+    Builds span_source by appending current request_source to parent's request_source.
     """
 
     def __init__(self, app: ASGIApp, service_name: str):
@@ -34,8 +35,8 @@ class ContextMiddleware:
         trace_id = request.headers.get('X-Trace-Id') or generate_trace_id()
         request_id = request.headers.get('X-Request-Id') or generate_request_id()
 
-        # Extract parent_span_id from incoming X-Span-Id header (if present)
-        parent_span_id = request.headers.get('X-Span-Id')
+        # Extract parent_span_id from incoming X-Parent-Span-Id header (if present)
+        parent_span_id = request.headers.get('X-Parent-Span-Id')
 
         # Always generate NEW span_id for this service's operation
         span_id = generate_span_id()
@@ -50,11 +51,11 @@ class ContextMiddleware:
         trace_source = trace_source_header or f"{self.service_name.upper()}:{endpoint_code}"
         request_source = f"{self.service_name.upper()}:{endpoint_code}"
 
-        # Build span_source: if we have parent span source, append current service
+        # Build span_source: if we have parent request source, append current service
         # Otherwise, just use current service
-        parent_span_source = request.headers.get('X-Span-Source')
-        if parent_span_source:
-            span_source = f"{parent_span_source}->{request_source}"
+        parent_request_source = request.headers.get('X-Request-Source')
+        if parent_request_source:
+            span_source = f"{parent_request_source}->{request_source}"
         else:
             span_source = request_source
 

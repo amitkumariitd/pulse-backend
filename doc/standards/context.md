@@ -199,21 +199,19 @@ logger.info("Order created", ctx)
 ```
 
 ### Rule 4: Database Writes
-All writes MUST include tracing fields for audit trail:
+All database writes MUST include context for tracing and audit trail.
+
+Pass `RequestContext` to repository methods - repositories handle extracting tracing fields.
 
 ```python
-# Regular tables: trace_id, request_id, span_id
-await db.execute(
-    "INSERT INTO orders (id, trace_id, request_id, span_id) VALUES ($1, $2, $3, $4)",
-    order.id, ctx.trace_id, ctx.request_id, ctx.span_id
-)
-
-# Async-initiating tables: also include trace_source
-await db.execute(
-    "INSERT INTO events (id, trace_id, trace_source, request_id, span_id) VALUES ($1, $2, $3, $4, $5)",
-    event.id, ctx.trace_id, ctx.trace_source, ctx.request_id, ctx.span_id
-)
+# Repository receives context and extracts tracing fields
+async def save_order(order_data: dict, ctx: RequestContext):
+    repo = OrderRepository(db_pool)
+    order = await repo.create_order(order_data, ctx)
+    return order
 ```
+
+**Schema requirements**: See [PostgreSQL Standard](postgres.md) for required tracing columns.
 
 ### Rule 5: Async Tasks
 When queuing async tasks, include context in message payload:

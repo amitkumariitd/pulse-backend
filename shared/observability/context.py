@@ -3,11 +3,18 @@ from dataclasses import dataclass
 import time
 import secrets
 import re
+from contextvars import ContextVar, Token
 
 
 TRACE_ID_PATTERN = re.compile(r'^t\d{10}[0-9a-f]{12}$')
 REQUEST_ID_PATTERN = re.compile(r'^r\d{10}[0-9a-f]{12}$')
 SPAN_ID_PATTERN = re.compile(r'^s[0-9a-f]{8}$')
+
+
+# Async-safe storage for the current request context
+_CURRENT_CONTEXT: ContextVar[Optional["RequestContext"]] = ContextVar(
+    "current_request_context", default=None
+)
 
 
 def generate_trace_id() -> str:
@@ -130,4 +137,36 @@ class RequestContext:
         if self.parent_span_id:
             result['parent_span_id'] = self.parent_span_id
         return result
+
+
+# --- ContextVar helpers for async-safe access outside route handlers ---
+def set_current_context(ctx: "RequestContext") -> Token:
+    """Set the current RequestContext in a ContextVar and return the reset token.
+
+    Use this in middleware at request ingress.
+    """
+    return _CURRENT_CONTEXT.set(ctx)
+
+
+def reset_current_context(token: Token) -> None:
+    """Reset the ContextVar to its previous value using the provided token."""
+    try:
+        _CURRENT_CONTEXT.reset(token)
+    except Exception:
+        # Best-effort reset; avoid raising during shutdown/cleanup paths
+        _CURRENT_CONTEXT.set(None)
+
+
+def get_context_obj() -> Optional["RequestContext"]:
+    """Get the current RequestContext object if available, else None."""
+    return _CURRENT_CONTEXT.get()
+
+
+def get_context() -> Dict[str, Any]:
+    """Get the current context as a dict suitable for headers/logs.
+
+    Returns an empty dict when no context is set (e.g., outside a request).
+    """
+    ctx = _CURRENT_CONTEXT.get()
+    return ctx.to_dict() if ctx else {}
 

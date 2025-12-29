@@ -2,7 +2,14 @@ from fastapi import Request
 from starlette.types import ASGIApp, Receive, Scope, Send
 from starlette.requests import Request as StarletteRequest
 from starlette.responses import Response
-from .context import RequestContext, generate_trace_id, generate_request_id, generate_span_id
+from .context import (
+    RequestContext,
+    generate_trace_id,
+    generate_request_id,
+    generate_span_id,
+    set_current_context,
+    reset_current_context,
+)
 
 
 class ContextMiddleware:
@@ -73,6 +80,8 @@ class ContextMiddleware:
         if "state" not in scope:
             scope["state"] = {}
         scope["state"]["context"] = ctx
+        # Also set process-local async context for downstream utilities (e.g., HTTP client, logger)
+        token = set_current_context(ctx)
 
         # Wrap send to add headers to response
         async def send_with_headers(message):
@@ -85,7 +94,11 @@ class ContextMiddleware:
                 message["headers"] = headers
             await send(message)
 
-        await self.app(scope, receive, send_with_headers)
+        try:
+            await self.app(scope, receive, send_with_headers)
+        finally:
+            # Ensure context is reset even if request handling fails
+            reset_current_context(token)
 
 
 # Backward compatibility alias

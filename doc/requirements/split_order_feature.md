@@ -13,7 +13,7 @@ Enable users to place a single parent order that is automatically split into mul
 4. **Splitting Algorithm** - Detailed calculation logic with time window constraints
 5. **API Design** - Endpoint, request/response schemas, validation
 6. **Processing Flow** - 4 phases: acceptance → splitting → execution → monitoring
-7. **Multi-Pod Concurrency Safety** - Idempotency, locking, race condition prevention
+7. **Multi-Pod Concurrency Safety** - Deduplication, locking, race condition prevention
 8. **Implementation Checklist** - Database, API, workers, testing
 9. **Questions to Resolve** - Open items for discussion
 
@@ -145,28 +145,17 @@ These scheduled_at values are STORED in child_orders table during splitting.
 
 ### Status Flow Summary
 
-**Parent Order Status** (Splitting lifecycle):
-```
-PENDING → SPLITTING → ACTIVE → COMPLETED
-                    ↓
-                  FAILED
-                    ↓
-                CANCELLED (user action)
-```
+**Order Queue Status (Parent - splitting lifecycle only)**:
+- `order_queue_status`: `PENDING` → `IN_PROGRESS` → `DONE` | `SKIPPED`
+- `order_queue_skip_reason` (TEXT, nullable): reason when `order_queue_status = 'SKIPPED'` (e.g., duplicate key)
 
-**Child Order Status** (Execution lifecycle):
+**Child Order Placement Stage (Execution lifecycle - simplified)**:
 ```
-SCHEDULED → READY → EXECUTING → EXECUTED
-                              ↓
-                           FAILED
-                              ↓
-                         CANCELLED (user action)
-                              ↓
-                          SKIPPED (parent expired)
+scheduled → inprogress → processed
 ```
 
 **Key Principle**:
-- Parent status = splitting/orchestration state
+- Order queue stage = splitting/orchestration state (separate from execution)
 - Child status = execution state
 - Parent metrics (executed_child_orders, failed_child_orders) are derived from children
 
@@ -183,22 +172,17 @@ Stores the original order request with split configuration. Tracks only the spli
 - `num_splits` (INTEGER) - Number of child orders to create
 - `duration_minutes` (INTEGER) - Total duration in minutes
 - `randomize` (BOOLEAN) - Whether to apply randomization
-- `idempotency_key` (VARCHAR, unique) - For idempotent creation
+- `order_unique_key` (VARCHAR, unique) - Unique key for order deduplication
 
-**Status Tracking** (Processing lifecycle only):
-- `status` (VARCHAR) - Tracks splitting process:
-  - `PENDING` - Order received, waiting to split
-  - `SPLITTING` - Currently creating child orders
-  - `ACTIVE` - Child orders created and scheduled
-  - `COMPLETED` - All child orders reached terminal state (check children for details)
-  - `FAILED` - Failed to create child orders (splitting error)
-  - `CANCELLED` - User cancelled before/during splitting
+**Order Queue Tracking**:
+- `order_queue_status` (VARCHAR) - Splitting lifecycle: `PENDING` | `IN_PROGRESS` | `DONE` | `SKIPPED`
+- `order_queue_skip_reason` (VARCHAR, nullable) - Reason when `order_queue_status = 'SKIPPED'` (e.g., duplicate key)
 
 **Execution Metrics** (Derived from child orders):
 - `total_child_orders` (INTEGER) - Number of child orders created
 - `executed_child_orders` (INTEGER) - Count of children with status=EXECUTED
 - `failed_child_orders` (INTEGER) - Count of children with status=FAILED
-- `cancelled_child_orders` (INTEGER) - Count of children with status=CANCELLED
+- `skipped_child_orders` (INTEGER) - Count of children with status=SKIPPED
 - `filled_quantity` (INTEGER) - Sum of executed quantities from children
 
 **Timing**:
@@ -206,8 +190,8 @@ Stores the original order request with split configuration. Tracks only the spli
 - `expires_at` (TIMESTAMPTZ) - When the duration window ends
 - `completed_at` (TIMESTAMPTZ) - When all children reached terminal state
 
-**Error Tracking**:
-- `failure_reason` (VARCHAR) - Error message if splitting failed
+**Queue Failure Tracking**:
+- TODO: Define additional failure fields if needed beyond `order_queue_skip_reason`
 
 **Standard Columns**:
 - Tracing: `trace_id`, `request_id`, `span_id`, `trace_source`
@@ -233,8 +217,7 @@ Stores individual split orders to be executed. Each child has its own execution 
   - `EXECUTING` - Currently being sent to broker
   - `EXECUTED` - Successfully executed
   - `FAILED` - Execution failed
-  - `CANCELLED` - Cancelled by user or system
-  - `SKIPPED` - Skipped due to parent cancellation
+  - `SKIPPED` - Skipped due to parent expiration
 
 **Scheduling**:
 - `scheduled_at` (TIMESTAMPTZ) - When this order should execute
@@ -424,12 +407,12 @@ def validate_split_schedule(parent_order, child_orders):
 
 **Request Headers**:
 - `Content-Type: application/json`
-- `Idempotency-Key: <uuid>` (required)
 - `Authorization: Bearer <token>` (required)
 
 **Request Body**:
 ```json
 {
+  "order_unique_key": "ouk_abc123xyz",
   "instrument": "NSE:RELIANCE",
   "side": "BUY",
   "total_quantity": 100,
@@ -459,7 +442,7 @@ def validate_split_schedule(parent_order, child_orders):
 **Error Responses**:
 - `400 Bad Request` - Invalid input (missing fields, invalid values)
 - `401 Unauthorized` - Missing or invalid auth token
-- `409 Conflict` - Duplicate idempotency key with different data
+- `409 Conflict` - Duplicate order_unique_key with different data
 - `422 Unprocessable Entity` - Business validation failed (e.g., insufficient funds)
 
 ---
@@ -490,7 +473,7 @@ def validate_split_schedule(parent_order, child_orders):
 **Responsibility**: Accept and validate the order request
 
 1. Validate request (schema, business rules)
-2. Check idempotency key
+2. Check order_unique_key for deduplication
 3. Create parent order record:
    - `status = PENDING`
    - Store split configuration
@@ -586,7 +569,7 @@ def validate_split_schedule(parent_order, child_orders):
 
 ## Non-Functional Requirements
 
-- **Idempotency**: Duplicate requests with same idempotency key return same parent_order_id
+- **Deduplication**: Duplicate requests with same order_unique_key return same parent_order_id
 - **Tracing**: All operations include trace_id, request_id for observability
 - **History**: Both tables have history tables with triggers
 - **Performance**: Order splitting should complete within 5 seconds
@@ -619,7 +602,7 @@ This feature implements the following patterns from `doc/standards/concurrency.m
 
 **Applied to**: `POST /api/orders/split` endpoint
 
-**Implementation**: Use unique constraint on `idempotency_key` to prevent duplicate parent orders.
+**Implementation**: Use unique constraint on `order_unique_key` to prevent duplicate parent orders.
 
 See `doc/standards/concurrency.md` - Pattern 1 for details.
 
@@ -701,9 +684,9 @@ See `doc/standards/concurrency.md` - Pattern 5 for details.
 ### Database Indexes for Safety & Performance
 
 ```sql
--- Idempotency
-CREATE UNIQUE INDEX idx_parent_orders_idempotency_key
-ON parent_orders(idempotency_key);
+-- Deduplication
+CREATE UNIQUE INDEX idx_parent_orders_order_unique_key
+ON parent_orders(order_unique_key);
 
 -- Worker queries
 CREATE INDEX idx_parent_orders_status_created
@@ -726,7 +709,7 @@ ON child_orders(parent_order_id, sequence_number);
 
 | Scenario | Risk | Solution | Guarantee |
 |----------|------|----------|-----------|
-| Duplicate API request | Duplicate parent orders | Unique idempotency_key | ✅ Only one parent created |
+| Duplicate API request | Duplicate parent orders | Unique order_unique_key | ✅ Only one parent created |
 | Two pods split same parent | Duplicate children | SELECT FOR UPDATE SKIP LOCKED | ✅ Only one pod splits |
 | Two pods execute same child | Execute twice | Atomic status transition | ✅ Only one pod executes |
 | Concurrent metric updates | Lost updates | Recalculate from source | ✅ Always correct |
@@ -750,7 +733,7 @@ ON child_orders(parent_order_id, sequence_number);
 ### Database Schema
 - [ ] Create `parent_orders` table with all required columns
 - [ ] Create `child_orders` table with all required columns
-- [ ] Add unique constraint on `parent_orders.idempotency_key`
+- [ ] Add unique constraint on `parent_orders.order_unique_key`
 - [ ] Add unique constraint on `child_orders(parent_order_id, sequence_number)`
 - [ ] Create indexes for worker queries
 - [ ] Create history tables for both tables
@@ -759,8 +742,8 @@ ON child_orders(parent_order_id, sequence_number);
 
 ### API Layer (GAPI)
 - [ ] Implement `POST /api/orders/split` endpoint
-- [ ] Validate request schema (mode, splits, duration)
-- [ ] Check idempotency_key before creating
+- [ ] Validate request schema (order_unique_key, splits, duration)
+- [ ] Check order_unique_key for deduplication before creating
 - [ ] Handle UniqueViolationError gracefully
 - [ ] Return 202 Accepted with parent_order_id
 - [ ] Add request/response to API contract document
@@ -794,8 +777,8 @@ ON child_orders(parent_order_id, sequence_number);
 - [ ] Unit test: Splitting algorithm (quantities, times, validation)
 - [ ] Unit test: Time window constraint enforcement
 - [ ] Integration test: Create split order via API
-- [ ] Integration test: Duplicate request with same idempotency_key
-- [ ] Integration test: Different data with same idempotency_key (409)
+- [ ] Integration test: Duplicate request with same order_unique_key
+- [ ] Integration test: Different data with same order_unique_key (409)
 - [ ] Integration test: Full flow (acceptance → splitting → execution)
 - [ ] Concurrency test: Two workers splitting same parent (only one succeeds)
 - [ ] Concurrency test: Two workers executing same child (only one succeeds)

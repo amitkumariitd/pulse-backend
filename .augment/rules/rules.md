@@ -102,6 +102,19 @@ See `.augment/rules/postgres.md` for detailed enforcement rules.
 
 ---
 
+## Concurrency rules
+
+**All concurrent code MUST follow `doc/standards/concurrency.md`.**
+
+Key requirements:
+- API operations must be idempotent (unique idempotency_key)
+- Background workers must use proper locking (pessimistic or optimistic)
+- Never use incremental updates (e.g., `count = count + 1`)
+- Always recalculate aggregates from source of truth
+- Implement timeout monitors for crash recovery
+
+---
+
 ## Dependency rules
 
 - Do NOT add new third-party libraries without explicit instruction.

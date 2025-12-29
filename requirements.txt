@@ -7,5 +7,6 @@ httpx==0.28.1
 # Database
 asyncpg==0.31.0
 alembic==1.17.2
+psycopg2-binary==2.9.11
 pydantic-settings==2.12.0
 

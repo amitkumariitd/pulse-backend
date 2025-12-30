@@ -70,12 +70,65 @@
 ## Schema Standards
 
 ### Required Columns (All Tables)
-- `id` - Primary key
-- `created_at`, `updated_at` - Timestamps
-- `trace_id`, `request_id`, `span_id` - Tracing
+- `id` - Primary key (VARCHAR or UUID)
+- `created_at` - BIGINT (Unix microseconds), auto-set by database
+- `updated_at` - BIGINT (Unix microseconds), auto-updated by trigger
+- `request_id`, `span_id` - Tracing (VARCHAR)
 
 ### Additional Columns (Async-Initiating Tables)
-- `trace_source` - Origin of the trace (needed for async processes to continue the trace)
+- `trace_id` - VARCHAR(64), trace identifier for distributed tracing
+- `trace_source` - VARCHAR(50), origin of the trace (needed for async processes to continue the trace)
+
+### Timestamp Format
+**All timestamps MUST be stored as BIGINT (Unix microseconds):**
+- Type: `BIGINT`
+- Format: Microseconds since Unix epoch (1970-01-01 00:00:00 UTC)
+- Precision: Microsecond (1/1,000,000 second)
+- Range: ~290,000 years (sufficient for all use cases)
+
+**Why Unix microseconds:**
+- No timezone ambiguity (always UTC)
+- Efficient storage and indexing (8 bytes)
+- Easy arithmetic (just integers)
+- Microsecond precision for high-frequency operations
+- Language-agnostic (works everywhere)
+
+**Database helper function:**
+```sql
+CREATE OR REPLACE FUNCTION unix_now_micros()
+RETURNS BIGINT AS $$
+BEGIN
+    RETURN (EXTRACT(EPOCH FROM CLOCK_TIMESTAMP()) * 1000000)::BIGINT;
+END;
+$$ LANGUAGE plpgsql VOLATILE;
+```
+
+**Column definitions:**
+```sql
+created_at BIGINT NOT NULL DEFAULT unix_now_micros(),
+updated_at BIGINT NOT NULL DEFAULT unix_now_micros()
+```
+
+**Auto-update trigger for updated_at:**
+```sql
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = unix_now_micros();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER update_{table_name}_updated_at
+BEFORE UPDATE ON {table_name}
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+```
+
+**Application code:**
+- NEVER set `created_at` or `updated_at` in INSERT/UPDATE statements
+- Database handles these automatically
+- Read timestamps as BIGINT, convert to datetime in application if needed
 
 ### Forbidden Columns
 **NEVER store derived/aggregated data:**

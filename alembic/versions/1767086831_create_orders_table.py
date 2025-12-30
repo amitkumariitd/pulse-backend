@@ -19,6 +19,16 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     """Create orders table with history and triggers."""
 
+    # Create helper function to get Unix time in microseconds
+    op.execute("""
+        CREATE OR REPLACE FUNCTION unix_now_micros()
+        RETURNS BIGINT AS $$
+        BEGIN
+            RETURN (EXTRACT(EPOCH FROM CLOCK_TIMESTAMP()) * 1000000)::BIGINT;
+        END;
+        $$ LANGUAGE plpgsql VOLATILE
+    """)
+
     # Create orders table
     op.execute("""
         CREATE TABLE orders (
@@ -33,13 +43,13 @@ def upgrade() -> None:
             order_queue_status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
                 CHECK (order_queue_status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'SKIPPED')),
             order_queue_skip_reason TEXT,
-            split_completed_at TIMESTAMPTZ,
+            split_completed_at BIGINT,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
             span_id VARCHAR(16) NOT NULL,
             trace_source VARCHAR(50) NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+            created_at BIGINT NOT NULL DEFAULT unix_now_micros(),
+            updated_at BIGINT NOT NULL DEFAULT unix_now_micros()
         )
     """)
     
@@ -56,7 +66,7 @@ def upgrade() -> None:
         CREATE TABLE orders_history (
             history_id BIGSERIAL PRIMARY KEY,
             operation VARCHAR(10) NOT NULL CHECK (operation IN ('INSERT', 'UPDATE', 'DELETE')),
-            changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            changed_at BIGINT NOT NULL DEFAULT unix_now_micros(),
             id VARCHAR(64) NOT NULL,
             instrument VARCHAR(50) NOT NULL,
             side VARCHAR(10) NOT NULL,
@@ -67,13 +77,13 @@ def upgrade() -> None:
             order_unique_key VARCHAR(255) NOT NULL,
             order_queue_status VARCHAR(20) NOT NULL,
             order_queue_skip_reason TEXT,
-            split_completed_at TIMESTAMPTZ,
+            split_completed_at BIGINT,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
             span_id VARCHAR(16) NOT NULL,
             trace_source VARCHAR(50) NOT NULL,
-            created_at TIMESTAMPTZ NOT NULL,
-            updated_at TIMESTAMPTZ NOT NULL
+            created_at BIGINT NOT NULL,
+            updated_at BIGINT NOT NULL
         )
     """)
     
@@ -153,13 +163,35 @@ def upgrade() -> None:
         FOR EACH ROW EXECUTE FUNCTION orders_history_trigger()
     """)
 
+    # Create trigger function to auto-update updated_at (Unix microseconds)
+    op.execute("""
+        CREATE OR REPLACE FUNCTION update_updated_at_column()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            NEW.updated_at = unix_now_micros();
+            RETURN NEW;
+        END;
+        $$ LANGUAGE plpgsql
+    """)
+
+    # Create trigger for orders table
+    op.execute("""
+        CREATE TRIGGER update_orders_updated_at
+        BEFORE UPDATE ON orders
+        FOR EACH ROW
+        EXECUTE FUNCTION update_updated_at_column()
+    """)
+
 
 def downgrade() -> None:
     """Drop orders table, history, and triggers."""
+    op.execute("DROP TRIGGER IF EXISTS update_orders_updated_at ON orders")
     op.execute("DROP TRIGGER IF EXISTS orders_history_delete ON orders")
     op.execute("DROP TRIGGER IF EXISTS orders_history_update ON orders")
     op.execute("DROP TRIGGER IF EXISTS orders_history_insert ON orders")
+    op.execute("DROP FUNCTION IF EXISTS update_updated_at_column()")
     op.execute("DROP FUNCTION IF EXISTS orders_history_trigger()")
+    op.execute("DROP FUNCTION IF EXISTS unix_now_micros()")
     op.execute("DROP TABLE IF EXISTS orders_history")
     op.execute("DROP TABLE IF EXISTS orders")
 

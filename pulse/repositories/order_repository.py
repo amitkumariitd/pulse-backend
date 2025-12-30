@@ -54,10 +54,9 @@ class OrderRepository(BaseRepository):
                     id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key,
                     order_queue_status,
-                    trace_id, request_id, span_id, trace_source,
-                    created_at, updated_at
+                    trace_id, request_id, span_id, trace_source
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, NOW(), NOW())
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
                 RETURNING *
                 """,
                 order_id,
@@ -176,8 +175,7 @@ class OrderRepository(BaseRepository):
                 """
                 UPDATE orders
                 SET order_queue_status = $1,
-                    order_queue_skip_reason = $2,
-                    updated_at = NOW()
+                    order_queue_skip_reason = $2
                 WHERE id = $3
                 """,
                 new_status,
@@ -225,8 +223,7 @@ class OrderRepository(BaseRepository):
                 """
                 UPDATE orders
                 SET order_queue_status = 'DONE',
-                    split_completed_at = NOW(),
-                    updated_at = NOW()
+                    split_completed_at = CURRENT_TIMESTAMP(6)
                 WHERE id = $1
                 """,
                 order_id

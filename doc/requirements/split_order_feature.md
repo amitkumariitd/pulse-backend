@@ -1,7 +1,7 @@
-# Split Order Feature - Complete Specification
+# Split Order Feature - Phase 1: Order Splitting
 
 ## Overview
-Enable users to place a single parent order that is automatically split into multiple child orders executed over a specified time period with randomization to avoid predictable patterns.
+Enable users to place a single parent order that is automatically split into multiple child orders with scheduled execution times. This phase focuses on accepting the order and creating the split schedule. Execution will be handled in a separate feature.
 
 ---
 
@@ -12,24 +12,26 @@ Enable users to place a single parent order that is automatically split into mul
 3. **Data Model** - Parent/child tables, status flows, columns
 4. **Splitting Algorithm** - Detailed calculation logic with time window constraints
 5. **API Design** - Endpoint, request/response schemas, validation
-6. **Processing Flow** - 4 phases: acceptance → splitting → execution → monitoring
+6. **Processing Flow** - 2 phases: acceptance → splitting
 7. **Multi-Pod Concurrency Safety** - Deduplication, locking, race condition prevention
 8. **Implementation Checklist** - Database, API, workers, testing
-9. **Questions to Resolve** - Open items for discussion
+9. **Out of Scope** - What's deferred to execution feature
+10. **Questions to Resolve** - Open items for discussion
 
 ---
 
 ## Business Context
 
-**Problem**: 
+**Problem**:
 - Large orders can move the market if executed at once
 - Users need to spread orders over time to reduce market impact
 - Predictable order patterns can be exploited by other traders
 
-**Solution**:
+**Solution (Phase 1 - Splitting)**:
 - Accept a parent order with split configuration
 - Automatically split into multiple child orders
-- Execute child orders over a specified duration with randomization
+- Calculate scheduled execution times with randomization
+- Store child orders ready for execution (execution handled separately)
 
 **Users**:
 - Traders placing large orders
@@ -145,24 +147,21 @@ These scheduled_at values are STORED in child_orders table during splitting.
 
 ### Status Flow Summary
 
-**Order Queue Status (Parent - splitting lifecycle only)**:
-- `order_queue_status`: `PENDING` → `IN_PROGRESS` → `DONE` | `SKIPPED`
-- `order_queue_skip_reason` (TEXT, nullable): reason when `order_queue_status = 'SKIPPED'` (e.g., duplicate key)
+**Parent Order Status (Splitting lifecycle)**:
+- `status`: `PENDING` → `SPLITTING` → `SPLIT_COMPLETE` | `FAILED`
 
-**Child Order Placement Stage (Execution lifecycle - simplified)**:
-```
-scheduled → inprogress → processed
-```
+**Child Order Status (Ready for execution)**:
+- `status`: `SCHEDULED` (ready to be picked up by execution worker)
 
 **Key Principle**:
-- Order queue stage = splitting/orchestration state (separate from execution)
-- Child status = execution state
-- Parent metrics (executed_child_orders, failed_child_orders) are derived from children
+- Parent status tracks splitting process only
+- Child status indicates readiness for execution
+- Execution status tracking is out of scope for this phase
 
 ---
 
 ### Parent Order Table: `parent_orders`
-Stores the original order request with split configuration. Tracks only the splitting process, NOT execution.
+Stores the original order request with split configuration. Tracks only the splitting process.
 
 **Columns**:
 - `id` (VARCHAR, PK) - Parent order ID
@@ -174,24 +173,13 @@ Stores the original order request with split configuration. Tracks only the spli
 - `randomize` (BOOLEAN) - Whether to apply randomization
 - `order_unique_key` (VARCHAR, unique) - Unique key for order deduplication
 
-**Order Queue Tracking**:
-- `order_queue_status` (VARCHAR) - Splitting lifecycle: `PENDING` | `IN_PROGRESS` | `DONE` | `SKIPPED`
-- `order_queue_skip_reason` (VARCHAR, nullable) - Reason when `order_queue_status = 'SKIPPED'` (e.g., duplicate key)
+**Splitting Status**:
+- `status` (VARCHAR) - Splitting lifecycle: `PENDING` | `SPLITTING` | `SPLIT_COMPLETE` | `FAILED`
+- `failure_reason` (VARCHAR, nullable) - Error message if splitting failed
 
-**Execution Metrics** (Derived from child orders):
+**Split Metadata**:
 - `total_child_orders` (INTEGER) - Number of child orders created
-- `executed_child_orders` (INTEGER) - Count of children with status=EXECUTED
-- `failed_child_orders` (INTEGER) - Count of children with status=FAILED
-- `skipped_child_orders` (INTEGER) - Count of children with status=SKIPPED
-- `filled_quantity` (INTEGER) - Sum of executed quantities from children
-
-**Timing**:
 - `split_completed_at` (TIMESTAMPTZ) - When child order creation completed
-- `expires_at` (TIMESTAMPTZ) - When the duration window ends
-- `completed_at` (TIMESTAMPTZ) - When all children reached terminal state
-
-**Queue Failure Tracking**:
-- TODO: Define additional failure fields if needed beyond `order_queue_skip_reason`
 
 **Standard Columns**:
 - Tracing: `trace_id`, `request_id`, `span_id`, `trace_source`
@@ -200,7 +188,7 @@ Stores the original order request with split configuration. Tracks only the spli
 ---
 
 ### Child Order Table: `child_orders`
-Stores individual split orders to be executed. Each child has its own execution status.
+Stores individual split orders ready for execution. Execution tracking is out of scope for this phase.
 
 **Columns**:
 - `id` (VARCHAR, PK) - Child order ID
@@ -210,33 +198,17 @@ Stores individual split orders to be executed. Each child has its own execution 
 - `quantity` (INTEGER) - Shares for this child order
 - `sequence_number` (INTEGER) - Order in the split sequence (1, 2, 3...)
 
-**Execution Status** (This is where execution tracking lives):
-- `status` (VARCHAR) - Execution lifecycle:
-  - `SCHEDULED` - Created and waiting for scheduled time
-  - `READY` - Scheduled time reached, ready to execute
-  - `EXECUTING` - Currently being sent to broker
-  - `EXECUTED` - Successfully executed
-  - `FAILED` - Execution failed
-  - `SKIPPED` - Skipped due to parent expiration
+**Status**:
+- `status` (VARCHAR) - Initial status: `SCHEDULED` (ready for execution worker to pick up)
 
 **Scheduling**:
-- `scheduled_at` (TIMESTAMPTZ) - When this order should execute
-- `execution_started_at` (TIMESTAMPTZ, nullable) - When execution began
-- `executed_at` (TIMESTAMPTZ, nullable) - When successfully executed
-
-**Broker Integration**:
-- `broker_order_id` (VARCHAR, nullable) - External broker order ID
-- `broker_status` (VARCHAR, nullable) - Status from broker system
-- `execution_price` (DECIMAL, nullable) - Actual execution price
-- `execution_quantity` (INTEGER, nullable) - Actual executed quantity
-
-**Error Tracking**:
-- `failure_reason` (VARCHAR, nullable) - Error message if execution failed
-- `retry_count` (INTEGER) - Number of execution retry attempts
+- `scheduled_at` (TIMESTAMPTZ) - When this order should execute (calculated during splitting)
 
 **Standard Columns**:
 - Tracing: `trace_id`, `request_id`, `span_id`, `trace_source`
 - Timestamps: `created_at`, `updated_at`
+
+**Note**: Execution-related columns (broker_order_id, execution_price, etc.) will be added in the execution feature.
 
 ---
 
@@ -431,7 +403,7 @@ def validate_split_schedule(parent_order, child_orders):
   "status": "PENDING",
   "instrument": "NSE:RELIANCE",
   "side": "BUY",
-  "total_quantity": 40,
+  "total_quantity": 100,
   "num_splits": 5,
   "duration_minutes": 60,
   "request_id": "r_xyz789",
@@ -493,77 +465,40 @@ def validate_split_schedule(parent_order, child_orders):
    - If `randomize = true`: Apply ±20% variance to each child
    - Adjust last child to ensure sum equals `total_quantity` exactly
    - Result: Array of quantities `[q1, q2, q3, ..., qN]`
-5. **Calculate scheduled execution times** (THIS IS KEY):
-   - Base interval: `duration_minutes / num_splits`
-   - For each child (i = 1 to N):
+4. **Calculate scheduled execution times** (THIS IS KEY):
+   - Base interval: `duration_minutes / (num_splits - 1)` to spread across full duration
+   - For each child (i = 0 to N-1):
      - Base time: `parent.created_at + (i * base_interval)`
      - If `randomize = true`: Apply ±30% variance to interval
+     - Clamp to ensure within `[parent.created_at, parent.created_at + duration_minutes]`
      - Store as `scheduled_at[i]`
-   - Ensure: `scheduled_at[1] >= parent.created_at`
-   - Ensure: `scheduled_at[N] <= parent.created_at + duration_minutes`
    - Result: Array of timestamps `[t1, t2, t3, ..., tN]`
-6. **Create child order records**:
-   - For each child (i = 1 to N):
+5. **Create child order records**:
+   - For each child (i = 0 to N-1):
      - `id` = generate unique ID
      - `parent_order_id` = parent.id
      - `instrument` = parent.instrument
      - `side` = parent.side
      - `quantity` = quantities[i]
-     - `sequence_number` = i
+     - `sequence_number` = i + 1
      - `scheduled_at` = timestamps[i]  ← **CALCULATED AND STORED**
      - `status` = SCHEDULED
      - Copy tracing fields from parent
+6. **Validate split schedule**:
+   - All scheduled_at times within time window
+   - Total quantity matches parent quantity
+   - Correct number of children created
 7. Update parent order:
-   - `status = ACTIVE`
+   - `status = SPLIT_COMPLETE`
    - `total_child_orders = num_splits`
    - `split_completed_at = NOW()`
-   - `expires_at = parent.created_at + duration_minutes`
-8. If splitting fails (price fetch error, DB error, etc.):
+8. If splitting fails (validation error, DB error, etc.):
    - Update parent: `status = FAILED`, set `failure_reason`
 
-**Key Point**: All `scheduled_at` times are calculated and persisted during this phase. The execution phase just reads these times.
+**Key Point**: All `scheduled_at` times are calculated and persisted during this phase. Child orders are ready for execution worker to pick up.
 
-**Parent Status**: `PENDING` → `SPLITTING` → `ACTIVE` (or `FAILED`)
-**Child Status**: `SCHEDULED` (with `scheduled_at` already set)
-
----
-
-### Phase 3: Order Execution (Background Worker - Pulse Background)
-**Responsibility**: Execute child orders at scheduled times
-
-1. Poll for child orders where:
-   - `scheduled_at <= NOW()`
-   - `status = SCHEDULED`
-2. For each child order:
-   - Update child: `status = READY`
-   - Update child: `status = EXECUTING`, set `execution_started_at`
-   - Call broker API to execute order
-   - If success:
-     - Update child: `status = EXECUTED`, set `executed_at`, `broker_order_id`, `execution_price`
-     - Update parent: increment `executed_child_orders`, update `filled_quantity`
-   - If failure:
-     - Update child: `status = FAILED`, set `failure_reason`
-     - Update parent: increment `failed_child_orders`
-     - Optionally retry based on retry policy
-3. Check if all children are in terminal state (EXECUTED, FAILED, CANCELLED, SKIPPED):
-   - If yes: Update parent `status = COMPLETED`, set `completed_at`
-
-**Child Status**: `SCHEDULED` → `READY` → `EXECUTING` → `EXECUTED` (or `FAILED`)
-**Parent Status**: `ACTIVE` → `COMPLETED` (when all children done)
-
----
-
-### Phase 4: Monitoring & Cleanup (Background Worker)
-**Responsibility**: Handle timeouts and cleanup
-
-1. Find parent orders where:
-   - `status = ACTIVE`
-   - `expires_at < NOW()`
-2. For each expired parent:
-   - Find children with `status = SCHEDULED`
-   - Update those children: `status = SKIPPED`
-   - Update parent: increment `cancelled_child_orders`
-   - Update parent: `status = COMPLETED`, set `completed_at`
+**Parent Status**: `PENDING` → `SPLITTING` → `SPLIT_COMPLETE` (or `FAILED`)
+**Child Status**: `SCHEDULED` (with `scheduled_at` already set, ready for execution)
 
 ---
 
@@ -573,7 +508,6 @@ def validate_split_schedule(parent_order, child_orders):
 - **Tracing**: All operations include trace_id, request_id for observability
 - **History**: Both tables have history tables with triggers
 - **Performance**: Order splitting should complete within 5 seconds
-- **Reliability**: Failed child orders should not block other children
 - **Concurrency Safety**: Multi-pod deployment safe (details below)
 
 ---
@@ -627,57 +561,18 @@ See `doc/standards/concurrency.md` - Pattern 2 for details.
 
 ---
 
-#### 3. Optimistic Locking for Execution (Pattern 3)
+#### 3. Timeout Monitors (Pattern 5)
 
-**Applied to**: Background worker executing `child_orders` with `status = SCHEDULED`
+**Applied to**: Recovery from pod crashes during splitting
 
-**Implementation**: Use atomic status transition to ensure only one pod executes each child order.
+**Implementation**: Periodic monitor to recover stuck records.
 
-**Key Query**:
-```sql
-UPDATE child_orders
-SET status = 'EXECUTING', execution_started_at = NOW()
-WHERE id = $1 AND status = 'SCHEDULED'
--- Check UPDATE result: 1 = won, 0 = lost
-```
-
-See `doc/standards/concurrency.md` - Pattern 3 for details.
-
----
-
-#### 4. Safe Aggregate Updates (Pattern 4)
-
-**Applied to**: Updating `parent_orders` metrics after child execution
-
-**Implementation**: Recalculate metrics from `child_orders` table (source of truth), never use incremental updates.
-
-**❌ WRONG**:
-```sql
-UPDATE parent_orders
-SET executed_child_orders = executed_child_orders + 1  -- Race condition!
-```
-
-**✅ CORRECT**:
-```sql
--- Recalculate from source
-SELECT COUNT(*) FILTER (WHERE status = 'EXECUTED') FROM child_orders WHERE parent_order_id = $1
-```
-
-See `doc/standards/concurrency.md` - Pattern 4 for details.
-
----
-
-#### 5. Timeout Monitors (Pattern 5)
-
-**Applied to**: Recovery from pod crashes
-
-**Implementation**: Periodic monitors to recover stuck records.
-
-**Monitors**:
+**Monitor**:
 - Parent orders stuck in `SPLITTING` > 5 minutes → mark as `FAILED`
-- Child orders stuck in `EXECUTING` > 2 minutes → mark as `FAILED`
 
 See `doc/standards/concurrency.md` - Pattern 5 for details.
+
+**Note**: Execution-related concurrency patterns (optimistic locking, aggregate updates) will be covered in the execution feature.
 
 ---
 
@@ -688,19 +583,18 @@ See `doc/standards/concurrency.md` - Pattern 5 for details.
 CREATE UNIQUE INDEX idx_parent_orders_order_unique_key
 ON parent_orders(order_unique_key);
 
--- Worker queries
+-- Worker queries for splitting
 CREATE INDEX idx_parent_orders_status_created
 ON parent_orders(status, created_at)
-WHERE status IN ('PENDING', 'ACTIVE');
-
--- Execution queries
-CREATE INDEX idx_child_orders_scheduled
-ON child_orders(status, scheduled_at)
-WHERE status = 'SCHEDULED';
+WHERE status = 'PENDING';
 
 -- Prevent duplicate sequences
 CREATE UNIQUE INDEX idx_child_orders_parent_sequence
 ON child_orders(parent_order_id, sequence_number);
+
+-- Foreign key index
+CREATE INDEX idx_child_orders_parent_id
+ON child_orders(parent_order_id);
 ```
 
 ---
@@ -711,19 +605,26 @@ ON child_orders(parent_order_id, sequence_number);
 |----------|------|----------|-----------|
 | Duplicate API request | Duplicate parent orders | Unique order_unique_key | ✅ Only one parent created |
 | Two pods split same parent | Duplicate children | SELECT FOR UPDATE SKIP LOCKED | ✅ Only one pod splits |
-| Two pods execute same child | Execute twice | Atomic status transition | ✅ Only one pod executes |
-| Concurrent metric updates | Lost updates | Recalculate from source | ✅ Always correct |
 | Pod crashes during split | Orphaned SPLITTING | Timeout monitor | ✅ Eventually recovered |
-| Pod crashes during execution | Orphaned EXECUTING | Timeout monitor | ✅ Eventually recovered |
 
 ---
 
-## Out of Scope (v1)
+## Out of Scope (Phase 1 - Splitting Only)
 
+**Deferred to Execution Feature**:
+- Executing child orders at scheduled times
+- Broker integration and order placement
+- Execution status tracking (READY, EXECUTING, EXECUTED, FAILED)
+- Execution metrics (executed_child_orders, failed_child_orders, filled_quantity)
+- Execution timestamps (execution_started_at, executed_at)
+- Broker-related fields (broker_order_id, broker_status, execution_price)
+- Retry logic for failed executions
+- Timeout/expiration handling for unexecuted orders
+- Cancellation of scheduled orders
+
+**Also Out of Scope**:
 - Price limit orders (only market orders)
 - Modifying parent order after creation
-- Cancelling individual child orders (only cancel entire parent order)
-- Broker integration (simulate execution initially)
 - Order by amount mode (only quantity mode supported)
 
 ---

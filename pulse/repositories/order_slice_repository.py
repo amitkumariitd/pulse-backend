@@ -52,10 +52,9 @@ class OrderSliceRepository(BaseRepository):
                 INSERT INTO order_slices (
                     id, order_id, instrument, side, quantity,
                     sequence_number, status, scheduled_at,
-                    trace_id, request_id, span_id, trace_source,
-                    created_at, updated_at
+                    trace_id, request_id, span_id, trace_source
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 RETURNING *
                 """,
                 slice_id,
@@ -117,10 +116,9 @@ class OrderSliceRepository(BaseRepository):
                         INSERT INTO order_slices (
                             id, order_id, instrument, side, quantity,
                             sequence_number, status, scheduled_at,
-                            trace_id, request_id, span_id, trace_source,
-                            created_at, updated_at
+                            trace_id, request_id, span_id, trace_source
                         )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, NOW(), NOW())
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                         """,
                         slice_data['id'],
                         slice_data['order_id'],
@@ -239,8 +237,7 @@ class OrderSliceRepository(BaseRepository):
             result = await conn.execute(
                 """
                 UPDATE order_slices
-                SET status = $1,
-                    updated_at = NOW()
+                SET status = $1
                 WHERE id = $2
                 """,
                 new_status,

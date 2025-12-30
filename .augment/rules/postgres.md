@@ -100,6 +100,17 @@ await conn.execute(
 - `trace_id` - VARCHAR(64) NOT NULL
 - `trace_source` - VARCHAR(50) NOT NULL
 
+**FORBIDDEN columns (never store derived/aggregated data):**
+- ❌ Counts (e.g., `total_child_orders`, `executed_child_orders`, `failed_child_orders`)
+- ❌ Sums (e.g., `filled_quantity`, `total_amount`)
+- ❌ Derived timestamps (e.g., `completed_at`, `expires_at` if calculable from child records)
+
+**Why forbidden:**
+- Child records are the source of truth
+- Prevents data inconsistency and race conditions
+- Aggregates MUST be calculated on-demand from source data
+- Use queries or application logic to compute these values
+
 **Required indexes:**
 - Primary key index (automatic)
 - Indexes on foreign keys

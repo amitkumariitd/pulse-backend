@@ -77,6 +77,23 @@
 ### Additional Columns (Async-Initiating Tables)
 - `trace_source` - Origin of the trace (needed for async processes to continue the trace)
 
+### Forbidden Columns
+**NEVER store derived/aggregated data:**
+- ❌ Counts that can be calculated (e.g., `total_child_orders`, `executed_child_orders`)
+- ❌ Sums that can be calculated (e.g., `filled_quantity`, `total_amount`)
+- ❌ Derived timestamps (e.g., `completed_at`, `expires_at` if calculable)
+
+**Why**:
+- Source of truth is the child records
+- Prevents data inconsistency
+- Aggregates should be calculated on-demand from source data
+- Use database queries or application logic to compute these values
+
+**Exception**: Caching columns are allowed ONLY if:
+- Clearly marked as cache (e.g., `cached_total`)
+- Have a documented refresh strategy
+- Are not used as source of truth
+
 ### Required Indexes
 - Primary key (automatic)
 - `trace_id` (for tracing queries)
@@ -122,4 +139,5 @@
 ❌ Manual history inserts
 ❌ Hardcoded credentials
 ❌ Direct schema changes in production
+❌ Store derived/aggregated columns (counts, sums, calculated values)
 

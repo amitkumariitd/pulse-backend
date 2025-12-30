@@ -33,14 +33,7 @@ def upgrade() -> None:
             order_queue_status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
                 CHECK (order_queue_status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'SKIPPED')),
             order_queue_skip_reason TEXT,
-            total_child_orders INTEGER,
-            executed_child_orders INTEGER DEFAULT 0,
-            failed_child_orders INTEGER DEFAULT 0,
-            skipped_child_orders INTEGER DEFAULT 0,
-            filled_quantity INTEGER DEFAULT 0,
             split_completed_at TIMESTAMPTZ,
-            expires_at TIMESTAMPTZ,
-            completed_at TIMESTAMPTZ,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
             span_id VARCHAR(16) NOT NULL,
@@ -76,14 +69,7 @@ def upgrade() -> None:
             order_unique_key VARCHAR(255) NOT NULL,
             order_queue_status VARCHAR(20) NOT NULL,
             order_queue_skip_reason TEXT,
-            total_child_orders INTEGER,
-            executed_child_orders INTEGER,
-            failed_child_orders INTEGER,
-            skipped_child_orders INTEGER,
-            filled_quantity INTEGER,
             split_completed_at TIMESTAMPTZ,
-            expires_at TIMESTAMPTZ,
-            completed_at TIMESTAMPTZ,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
             span_id VARCHAR(16) NOT NULL,
@@ -105,17 +91,13 @@ def upgrade() -> None:
                 INSERT INTO parent_orders_history (
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
-                    order_queue_skip_reason, total_child_orders, executed_child_orders,
-                    failed_child_orders, skipped_child_orders, filled_quantity,
-                    split_completed_at, expires_at, completed_at,
+                    order_queue_skip_reason, split_completed_at,
                     trace_id, request_id, span_id, trace_source,
                     created_at, updated_at
                 ) VALUES (
                     'DELETE', OLD.id, OLD.instrument, OLD.side, OLD.total_quantity, OLD.num_splits,
                     OLD.duration_minutes, OLD.randomize, OLD.order_unique_key, OLD.order_queue_status,
-                    OLD.order_queue_skip_reason, OLD.total_child_orders, OLD.executed_child_orders,
-                    OLD.failed_child_orders, OLD.skipped_child_orders, OLD.filled_quantity,
-                    OLD.split_completed_at, OLD.expires_at, OLD.completed_at,
+                    OLD.order_queue_skip_reason, OLD.split_completed_at,
                     OLD.trace_id, OLD.request_id, OLD.span_id, OLD.trace_source,
                     OLD.created_at, OLD.updated_at
                 );
@@ -124,17 +106,13 @@ def upgrade() -> None:
                 INSERT INTO parent_orders_history (
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
-                    order_queue_skip_reason, total_child_orders, executed_child_orders,
-                    failed_child_orders, skipped_child_orders, filled_quantity,
-                    split_completed_at, expires_at, completed_at,
+                    order_queue_skip_reason, split_completed_at,
                     trace_id, request_id, span_id, trace_source,
                     created_at, updated_at
                 ) VALUES (
                     'UPDATE', OLD.id, OLD.instrument, OLD.side, OLD.total_quantity, OLD.num_splits,
                     OLD.duration_minutes, OLD.randomize, OLD.order_unique_key, OLD.order_queue_status,
-                    OLD.order_queue_skip_reason, OLD.total_child_orders, OLD.executed_child_orders,
-                    OLD.failed_child_orders, OLD.skipped_child_orders, OLD.filled_quantity,
-                    OLD.split_completed_at, OLD.expires_at, OLD.completed_at,
+                    OLD.order_queue_skip_reason, OLD.split_completed_at,
                     OLD.trace_id, OLD.request_id, OLD.span_id, OLD.trace_source,
                     OLD.created_at, OLD.updated_at
                 );
@@ -143,17 +121,13 @@ def upgrade() -> None:
                 INSERT INTO parent_orders_history (
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
-                    order_queue_skip_reason, total_child_orders, executed_child_orders,
-                    failed_child_orders, skipped_child_orders, filled_quantity,
-                    split_completed_at, expires_at, completed_at,
+                    order_queue_skip_reason, split_completed_at,
                     trace_id, request_id, span_id, trace_source,
                     created_at, updated_at
                 ) VALUES (
                     'INSERT', NEW.id, NEW.instrument, NEW.side, NEW.total_quantity, NEW.num_splits,
                     NEW.duration_minutes, NEW.randomize, NEW.order_unique_key, NEW.order_queue_status,
-                    NEW.order_queue_skip_reason, NEW.total_child_orders, NEW.executed_child_orders,
-                    NEW.failed_child_orders, NEW.skipped_child_orders, NEW.filled_quantity,
-                    NEW.split_completed_at, NEW.expires_at, NEW.completed_at,
+                    NEW.order_queue_skip_reason, NEW.split_completed_at,
                     NEW.trace_id, NEW.request_id, NEW.span_id, NEW.trace_source,
                     NEW.created_at, NEW.updated_at
                 );

@@ -43,11 +43,14 @@ This is the `pulse-backend` monorepo containing multiple components that will ev
 - GAPI must NEVER import code from Pulse
 - Pulse must NEVER import code from GAPI
 - Communication between GAPI and Pulse MUST happen via **HTTP APIs only**
+- **GAPI must NEVER have direct database access** - only Pulse accesses the database
+- GAPI communicates with Pulse via HTTP to trigger operations
 
 **Pulse API ↔ Pulse Background: Shared codebase**
 - `pulse_api` and `pulse_background` are different deployables of the same service
 - They share all domain logic, repositories, and utilities
 - Only entry points differ (HTTP vs background worker)
+- **Both have database access** via shared connection pool
 
 ---
 

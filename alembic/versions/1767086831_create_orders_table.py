@@ -1,7 +1,7 @@
-"""create parent_orders table
+"""create orders table
 
 Revision ID: 1767086831
-Revises: 
+Revises:
 Create Date: 2024-12-30
 
 """
@@ -17,11 +17,11 @@ depends_on: Union[str, Sequence[str], None] = None
 
 
 def upgrade() -> None:
-    """Create parent_orders table with history and triggers."""
-    
-    # Create parent_orders table
+    """Create orders table with history and triggers."""
+
+    # Create orders table
     op.execute("""
-        CREATE TABLE parent_orders (
+        CREATE TABLE orders (
             id VARCHAR(64) PRIMARY KEY,
             instrument VARCHAR(50) NOT NULL,
             side VARCHAR(10) NOT NULL CHECK (side IN ('BUY', 'SELL')),
@@ -44,18 +44,16 @@ def upgrade() -> None:
     """)
     
     # Create indexes
-    op.execute("CREATE INDEX idx_parent_orders_trace_id ON parent_orders(trace_id)")
-    op.execute("CREATE INDEX idx_parent_orders_request_id ON parent_orders(request_id)")
-    op.execute("CREATE INDEX idx_parent_orders_order_queue_status ON parent_orders(order_queue_status)")
+    op.execute("CREATE INDEX idx_orders_order_queue_status ON orders(order_queue_status)")
     op.execute("""
-        CREATE INDEX idx_parent_orders_status_created 
-        ON parent_orders(order_queue_status, created_at) 
+        CREATE INDEX idx_orders_status_created
+        ON orders(order_queue_status, created_at)
         WHERE order_queue_status IN ('PENDING', 'IN_PROGRESS')
     """)
     
     # Create history table
     op.execute("""
-        CREATE TABLE parent_orders_history (
+        CREATE TABLE orders_history (
             history_id BIGSERIAL PRIMARY KEY,
             operation VARCHAR(10) NOT NULL CHECK (operation IN ('INSERT', 'UPDATE', 'DELETE')),
             changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -79,16 +77,16 @@ def upgrade() -> None:
         )
     """)
     
-    op.execute("CREATE INDEX idx_parent_orders_history_id ON parent_orders_history(id)")
-    op.execute("CREATE INDEX idx_parent_orders_history_changed_at ON parent_orders_history(changed_at)")
+    op.execute("CREATE INDEX idx_orders_history_id ON orders_history(id)")
+    op.execute("CREATE INDEX idx_orders_history_changed_at ON orders_history(changed_at)")
     
     # Create trigger function
     op.execute("""
-        CREATE OR REPLACE FUNCTION parent_orders_history_trigger()
+        CREATE OR REPLACE FUNCTION orders_history_trigger()
         RETURNS TRIGGER AS $$
         BEGIN
             IF (TG_OP = 'DELETE') THEN
-                INSERT INTO parent_orders_history (
+                INSERT INTO orders_history (
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
                     order_queue_skip_reason, split_completed_at,
@@ -103,7 +101,7 @@ def upgrade() -> None:
                 );
                 RETURN OLD;
             ELSIF (TG_OP = 'UPDATE') THEN
-                INSERT INTO parent_orders_history (
+                INSERT INTO orders_history (
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
                     order_queue_skip_reason, split_completed_at,
@@ -118,7 +116,7 @@ def upgrade() -> None:
                 );
                 RETURN NEW;
             ELSIF (TG_OP = 'INSERT') THEN
-                INSERT INTO parent_orders_history (
+                INSERT INTO orders_history (
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
                     order_queue_skip_reason, split_completed_at,
@@ -140,28 +138,28 @@ def upgrade() -> None:
 
     # Create triggers
     op.execute("""
-        CREATE TRIGGER parent_orders_history_insert
-        AFTER INSERT ON parent_orders
-        FOR EACH ROW EXECUTE FUNCTION parent_orders_history_trigger()
+        CREATE TRIGGER orders_history_insert
+        AFTER INSERT ON orders
+        FOR EACH ROW EXECUTE FUNCTION orders_history_trigger()
     """)
     op.execute("""
-        CREATE TRIGGER parent_orders_history_update
-        AFTER UPDATE ON parent_orders
-        FOR EACH ROW EXECUTE FUNCTION parent_orders_history_trigger()
+        CREATE TRIGGER orders_history_update
+        AFTER UPDATE ON orders
+        FOR EACH ROW EXECUTE FUNCTION orders_history_trigger()
     """)
     op.execute("""
-        CREATE TRIGGER parent_orders_history_delete
-        AFTER DELETE ON parent_orders
-        FOR EACH ROW EXECUTE FUNCTION parent_orders_history_trigger()
+        CREATE TRIGGER orders_history_delete
+        AFTER DELETE ON orders
+        FOR EACH ROW EXECUTE FUNCTION orders_history_trigger()
     """)
 
 
 def downgrade() -> None:
-    """Drop parent_orders table, history, and triggers."""
-    op.execute("DROP TRIGGER IF EXISTS parent_orders_history_delete ON parent_orders")
-    op.execute("DROP TRIGGER IF EXISTS parent_orders_history_update ON parent_orders")
-    op.execute("DROP TRIGGER IF EXISTS parent_orders_history_insert ON parent_orders")
-    op.execute("DROP FUNCTION IF EXISTS parent_orders_history_trigger()")
-    op.execute("DROP TABLE IF EXISTS parent_orders_history")
-    op.execute("DROP TABLE IF EXISTS parent_orders")
+    """Drop orders table, history, and triggers."""
+    op.execute("DROP TRIGGER IF EXISTS orders_history_delete ON orders")
+    op.execute("DROP TRIGGER IF EXISTS orders_history_update ON orders")
+    op.execute("DROP TRIGGER IF EXISTS orders_history_insert ON orders")
+    op.execute("DROP FUNCTION IF EXISTS orders_history_trigger()")
+    op.execute("DROP TABLE IF EXISTS orders_history")
+    op.execute("DROP TABLE IF EXISTS orders")
 

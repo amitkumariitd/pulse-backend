@@ -1,4 +1,5 @@
 from logging.config import fileConfig
+import time
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
@@ -7,6 +8,17 @@ from alembic import context
 
 # Import settings to get database configuration
 from config.settings import get_settings
+
+
+def generate_revision_id():
+    """Generate revision ID using Unix timestamp (seconds).
+
+    This ensures:
+    - Chronological ordering of migrations
+    - Uniqueness across different developers
+    - Easy identification of when migration was created
+    """
+    return str(int(time.time()))
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
@@ -52,6 +64,9 @@ def run_migrations_offline() -> None:
         target_metadata=target_metadata,
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
+        process_revision_directives=lambda context, revision, directives: setattr(
+            directives[0], 'rev_id', generate_revision_id()
+        ) if directives else None,
     )
 
     with context.begin_transaction():
@@ -73,7 +88,11 @@ def run_migrations_online() -> None:
 
     with connectable.connect() as connection:
         context.configure(
-            connection=connection, target_metadata=target_metadata
+            connection=connection,
+            target_metadata=target_metadata,
+            process_revision_directives=lambda context, revision, directives: setattr(
+                directives[0], 'rev_id', generate_revision_id()
+            ) if directives else None,
         )
 
         with context.begin_transaction():

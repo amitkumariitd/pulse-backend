@@ -222,8 +222,8 @@ class OrderRepository(BaseRepository):
             result = await conn.execute(
                 """
                 UPDATE orders
-                SET order_queue_status = 'DONE',
-                    split_completed_at = CURRENT_TIMESTAMP(6)
+                SET order_queue_status = 'COMPLETED',
+                    split_completed_at = unix_now_micros()
                 WHERE id = $1
                 """,
                 order_id

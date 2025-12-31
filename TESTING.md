@@ -13,7 +13,7 @@ python -m pytest --cov=gapi --cov=pulse --cov=shared --cov-report=html
 open htmlcov/index.html
 ```
 
-**Status**: 40/40 tests passing ✅
+**Status**: 116/120 tests passing (4 pre-existing failures in timeout_monitor tests)
 
 ---
 
@@ -21,8 +21,8 @@ open htmlcov/index.html
 
 ```bash
 # By test type
-python -m pytest tests/unit/ -v          # All unit tests (8 tests)
-python -m pytest tests/integration/ -v   # All integration tests (12 tests)
+python -m pytest tests/unit/ -v          # All unit tests (80 tests)
+python -m pytest tests/integration/ -v   # All integration tests (40 tests)
 
 # By component
 python -m pytest tests/unit/services/gapi/ -v
@@ -47,22 +47,24 @@ python -m pytest tests/unit/services/gapi/test_health.py::test_health_returns_ok
 
 ```
 tests/
-├── unit/                           # Fast, isolated tests (22 tests)
+├── unit/                           # Fast, isolated tests (80 tests)
+│   ├── repositories/               # Repository tests (12 tests)
 │   ├── services/
-│   │   ├── gapi/                   # GAPI unit tests (4 tests)
-│   │   └── pulse/                  # Pulse unit tests (4 tests)
+│   │   ├── gapi/                   # GAPI unit tests (10 tests)
+│   │   └── pulse/                  # Pulse unit tests (16 tests)
 │   └── shared/
-│       ├── observability/          # Context, logger, middleware tests (14 tests)
-│       └── http/                   # HTTP client tests
-└── integration/                    # End-to-end tests (18 tests)
+│       ├── observability/          # Context, logger, middleware tests (39 tests)
+│       └── http/                   # HTTP client tests (3 tests)
+└── integration/                    # End-to-end tests (40 tests)
+    ├── database/                   # Database pool tests (4 tests)
     ├── services/
-    │   ├── gapi/                   # GAPI integration tests (9 tests)
-    │   └── pulse/                  # Pulse integration tests (9 tests)
+    │   ├── gapi/                   # GAPI integration tests (14 tests)
+    │   └── pulse/                  # Pulse integration tests (22 tests)
     └── shared/
         └── observability/          # Cross-component integration tests
 ```
 
-**Total**: 40 tests, 100% passing
+**Total**: 120 tests (116 passing, 4 pre-existing failures in timeout_monitor)
 
 ### Key Principles
 - **Mirrors project structure** - `shared/observability/context.py` → `tests/unit/shared/observability/test_context.py`

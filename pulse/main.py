@@ -10,6 +10,7 @@ from shared.observability.middleware import ContextMiddleware
 from shared.observability.logger import get_logger
 from shared.database.pool import create_pool, close_pool
 from config.settings import get_settings
+from pulse.api.orders import router as orders_router
 
 logger = get_logger("pulse")
 
@@ -40,6 +41,9 @@ async def lifespan(app: FastAPI):
 
 app = FastAPI(title="Pulse", lifespan=lifespan)
 app.add_middleware(ContextMiddleware, service_name="pulse")
+
+# Register routers
+app.include_router(orders_router)
 
 
 def get_db_pool() -> asyncpg.Pool:

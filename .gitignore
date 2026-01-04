@@ -57,3 +57,7 @@ logs/
 *.tmp
 .cache/
 
+# Postman - exclude production/staging environments with real credentials
+postman/*production*.json
+postman/*staging*.json
+postman/*prod*.json

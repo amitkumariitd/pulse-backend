@@ -1,0 +1,166 @@
+{
+  "info": {
+    "name": "Pulse Backend",
+    "description": "API collection for Pulse Backend - Order splitting service",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Check if the application and background workers are running"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "GAPI (External API)",
+      "item": [
+        {
+          "name": "Create Order",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"instrument\": \"NSE:RELIANCE\",\n  \"side\": \"BUY\",\n  \"total_quantity\": 100,\n  \"num_splits\": 5,\n  \"duration_minutes\": 60,\n  \"randomize\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gapi/api/orders",
+              "host": ["{{base_url}}"],
+              "path": ["gapi", "api", "orders"]
+            },
+            "description": "Create a new order via GAPI (external gateway)"
+          },
+          "response": []
+        },
+        {
+          "name": "Create Order - SELL",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"instrument\": \"NSE:INFY\",\n  \"side\": \"SELL\",\n  \"total_quantity\": 50,\n  \"num_splits\": 3,\n  \"duration_minutes\": 30,\n  \"randomize\": false\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/gapi/api/orders",
+              "host": ["{{base_url}}"],
+              "path": ["gapi", "api", "orders"]
+            },
+            "description": "Create a SELL order with fixed intervals (no randomization)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Pulse API (Internal)",
+      "item": [
+        {
+          "name": "Create Order (Internal)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"order_unique_key\": \"test-order-{{$timestamp}}\",\n  \"instrument\": \"NSE:TCS\",\n  \"side\": \"BUY\",\n  \"total_quantity\": 200,\n  \"num_splits\": 10,\n  \"duration_minutes\": 120,\n  \"randomize\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/pulse/internal/orders",
+              "host": ["{{base_url}}"],
+              "path": ["pulse", "internal", "orders"]
+            },
+            "description": "Create order directly via Pulse internal API (bypasses GAPI)"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/pulse/internal/orders/{{order_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["pulse", "internal", "orders", "{{order_id}}"]
+            },
+            "description": "Retrieve order details by order ID"
+          },
+          "response": []
+        },
+        {
+          "name": "Get Order Slices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/pulse/internal/orders/{{order_id}}/slices",
+              "host": ["{{base_url}}"],
+              "path": ["pulse", "internal", "orders", "{{order_id}}", "slices"]
+            },
+            "description": "Get all slices for a specific order"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "test-token-123",
+      "type": "string"
+    },
+    {
+      "key": "order_id",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

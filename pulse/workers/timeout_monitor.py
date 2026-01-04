@@ -46,7 +46,7 @@ async def recover_stuck_orders(
             """
             UPDATE orders
             SET order_queue_status = 'FAILED',
-                skip_reason = $1,
+                order_queue_skip_reason = $1,
                 updated_at = $2,
                 request_id = $3,
                 span_id = $4

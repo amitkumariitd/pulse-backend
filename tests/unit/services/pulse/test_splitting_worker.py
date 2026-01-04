@@ -33,7 +33,7 @@ def sample_order():
     """Create a sample order record."""
     # Unix microseconds for 2025-12-29 10:00:00 UTC
     created_at_micros = 1735466400000000
-    
+
     return {
         'id': 'order_123',
         'instrument': 'NSE:RELIANCE',
@@ -43,7 +43,9 @@ def sample_order():
         'duration_minutes': 60,
         'randomize': False,
         'created_at': created_at_micros,
-        'order_queue_status': 'PENDING'
+        'order_queue_status': 'PENDING',
+        'trace_id': 't1234567890abcdef1234',
+        'trace_source': 'TEST:parent_order'
     }
 
 
@@ -93,18 +95,26 @@ async def test_process_single_order_success(mock_ctx, sample_order):
     
     # Verify success
     assert result is True
-    
+
     # Verify status was updated to IN_PROGRESS
-    mock_order_repo.update_order_status.assert_any_call(
-        'order_123',
-        'IN_PROGRESS',
-        mock_ctx
-    )
-    
+    # The context should have the parent order's trace_id
+    assert mock_order_repo.update_order_status.called
+    update_call_args = mock_order_repo.update_order_status.call_args_list[0]
+    assert update_call_args[0][0] == 'order_123'
+    assert update_call_args[0][1] == 'IN_PROGRESS'
+    update_ctx = update_call_args[0][2]
+    assert update_ctx.trace_id == 't1234567890abcdef1234'  # From parent order
+    assert update_ctx.trace_source == 'TEST:parent_order'  # From parent order
+
     # Verify slices were created
     assert mock_slice_repo.create_order_slices_batch.called
     call_args = mock_slice_repo.create_order_slices_batch.call_args
     slice_records = call_args[0][0]
+    slice_ctx = call_args[0][1]
+
+    # Verify context passed to slice creation has parent's trace_id
+    assert slice_ctx.trace_id == 't1234567890abcdef1234'
+    assert slice_ctx.trace_source == 'TEST:parent_order'
     
     # Verify correct number of slices
     assert len(slice_records) == 5
@@ -120,11 +130,13 @@ async def test_process_single_order_success(mock_ctx, sample_order):
         assert 'scheduled_at' in slice_record
     
     # Verify order was marked as complete
-    mock_order_repo.mark_split_complete.assert_called_once_with(
-        'order_123',
-        5,
-        mock_ctx
-    )
+    assert mock_order_repo.mark_split_complete.called
+    complete_call_args = mock_order_repo.mark_split_complete.call_args
+    assert complete_call_args[0][0] == 'order_123'
+    assert complete_call_args[0][1] == 5
+    complete_ctx = complete_call_args[0][2]
+    assert complete_ctx.trace_id == 't1234567890abcdef1234'
+    assert complete_ctx.trace_source == 'TEST:parent_order'
 
 
 @pytest.mark.asyncio

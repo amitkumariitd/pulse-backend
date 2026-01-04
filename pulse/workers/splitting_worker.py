@@ -42,31 +42,42 @@ async def process_single_order(
     ctx: RequestContext
 ) -> bool:
     """Process a single pending order and split it into slices.
-    
+
     Args:
         order: Order record from database
         order_repo: Order repository instance
         slice_repo: Order slice repository instance
-        ctx: Request context for tracing
-        
+        ctx: Request context for tracing (worker context, will be replaced with order's trace_id)
+
     Returns:
         True if successfully processed, False otherwise
     """
     order_id = order['id']
-    
+
+    # Create a new context that inherits the parent order's trace_id and trace_source
+    # but generates new request_id and span_id for this background operation
+    order_ctx = RequestContext(
+        trace_id=order['trace_id'],  # Use parent order's trace_id
+        trace_source=order['trace_source'],  # Use parent order's trace_source
+        request_id=generate_request_id(),  # New request_id for this worker operation
+        request_source="PULSE_BACKGROUND:splitting_worker",
+        span_id=generate_span_id(),  # New span_id for this operation
+        span_source="PULSE_BACKGROUND:splitting_worker"
+    )
+
     try:
         # Update status to IN_PROGRESS immediately
-        await order_repo.update_order_status(order_id, 'IN_PROGRESS', ctx)
+        await order_repo.update_order_status(order_id, 'IN_PROGRESS', order_ctx)
         
-        logger.info("Processing order for splitting", ctx, data={
+        logger.info("Processing order for splitting", order_ctx, data={
             "order_id": order_id,
             "total_quantity": order['total_quantity'],
             "num_splits": order['num_splits']
         })
-        
+
         # Convert created_at from unix microseconds to datetime
         parent_created_at = micros_to_datetime(order['created_at'])
-        
+
         # Calculate split schedule
         slices = calculate_split_schedule(
             parent_created_at=parent_created_at,
@@ -75,7 +86,7 @@ async def process_single_order(
             duration_minutes=order['duration_minutes'],
             randomize=order['randomize']
         )
-        
+
         # Prepare slice records for batch insert
         slice_records = []
         for split_slice in slices:
@@ -88,43 +99,43 @@ async def process_single_order(
                 'sequence_number': split_slice.sequence_number,
                 'scheduled_at': datetime_to_micros(split_slice.scheduled_at)
             })
-        
+
         # Create all slices in batch
-        created_count = await slice_repo.create_order_slices_batch(slice_records, ctx)
-        
+        created_count = await slice_repo.create_order_slices_batch(slice_records, order_ctx)
+
         if created_count != order['num_splits']:
             raise RuntimeError(f"Expected {order['num_splits']} slices, created {created_count}")
-        
+
         # Mark order as completed
-        await order_repo.mark_split_complete(order_id, created_count, ctx)
-        
-        logger.info("Order splitting completed", ctx, data={
+        await order_repo.mark_split_complete(order_id, created_count, order_ctx)
+
+        logger.info("Order splitting completed", order_ctx, data={
             "order_id": order_id,
             "slices_created": created_count
         })
-        
+
         return True
-        
+
     except Exception as e:
-        logger.error("Order splitting failed", ctx, data={
+        logger.error("Order splitting failed", order_ctx, data={
             "order_id": order_id,
             "error": str(e)
         })
-        
+
         # Mark order as failed
         try:
             await order_repo.update_order_status(
                 order_id,
                 'FAILED',
-                ctx,
+                order_ctx,
                 skip_reason=f"Splitting error: {str(e)}"
             )
         except Exception as update_error:
-            logger.error("Failed to mark order as FAILED", ctx, data={
+            logger.error("Failed to mark order as FAILED", order_ctx, data={
                 "order_id": order_id,
                 "error": str(update_error)
             })
-        
+
         return False
 
 

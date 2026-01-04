@@ -185,3 +185,61 @@ async def test_time_window_constraint_enforcement():
     finally:
         await close_pool(pool)
 
+
+@pytest.mark.asyncio
+async def test_trace_id_propagation_from_order_to_slices():
+    """Test that order slices inherit the parent order's trace_id."""
+    settings = get_settings()
+    pool = await create_pool(settings)
+
+    try:
+        ctx = create_test_ctx()
+        order_repo = OrderRepository(pool)
+        slice_repo = OrderSliceRepository(pool)
+
+        # Create order with specific trace_id
+        order_id = f"test_trace_{datetime.now().timestamp()}"
+        order_unique_key = f"ouk_trace_{datetime.now().timestamp()}"
+        parent_trace_id = ctx.trace_id
+        parent_trace_source = ctx.trace_source
+
+        created_order = await order_repo.create_order(
+            order_id=order_id,
+            instrument="NSE:RELIANCE",
+            side="BUY",
+            total_quantity=100,
+            num_splits=5,
+            duration_minutes=60,
+            randomize=True,
+            order_unique_key=order_unique_key,
+            ctx=ctx
+        )
+
+        # Verify parent order has the expected trace_id
+        assert created_order['trace_id'] == parent_trace_id
+        assert created_order['trace_source'] == parent_trace_source
+
+        # Process the order (split into slices)
+        result = await process_single_order(
+            created_order,
+            order_repo,
+            slice_repo,
+            ctx
+        )
+
+        assert result is True
+
+        # Get all slices for this order
+        slices = await slice_repo.get_slices_by_order_id(order_id, ctx)
+
+        # Verify all slices have the same trace_id as parent order
+        assert len(slices) == 5
+        for slice_record in slices:
+            assert slice_record['trace_id'] == parent_trace_id, \
+                f"Slice {slice_record['id']} has trace_id {slice_record['trace_id']}, expected {parent_trace_id}"
+            assert slice_record['trace_source'] == parent_trace_source, \
+                f"Slice {slice_record['id']} has trace_source {slice_record['trace_source']}, expected {parent_trace_source}"
+
+    finally:
+        await close_pool(pool)
+

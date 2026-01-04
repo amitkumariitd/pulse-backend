@@ -6,6 +6,7 @@ from pulse.main import app as pulse_app, lifespan as pulse_lifespan, get_db_pool
 from pulse.workers.splitting_worker import run_splitting_worker
 from pulse.workers.timeout_monitor import run_timeout_monitor
 from shared.observability.logger import get_logger
+from shared.observability.access_log_middleware import AccessLogMiddleware
 
 logger = get_logger("main")
 
@@ -71,6 +72,9 @@ app = FastAPI(
     lifespan=lifespan
 )
 
+# Add access log middleware for structured JSON logging
+app.add_middleware(AccessLogMiddleware)
+
 app.mount("/gapi", gapi_app)
 app.mount("/pulse", pulse_app)
 
@@ -85,4 +89,15 @@ def health():
             "background_workers": "running"
         }
     }
+
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(
+        "main:app",
+        host="127.0.0.1",
+        port=8000,
+        reload=True,
+        access_log=False  # Disable uvicorn's default access logs (we use our own structured JSON logs)
+    )
 

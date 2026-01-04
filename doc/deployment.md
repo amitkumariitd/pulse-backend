@@ -48,7 +48,7 @@ docker-compose -f docker-compose.test.yml up --abort-on-container-exit
 ### 3. Debug with Postman
 
 1. Start the application: `make up`
-2. Import Postman collection from `tools/postman/pulse-backend.postman_collection.json`
+2. Import Postman collections from `postman/` directory
 3. Test endpoints in Postman
 
 ---
@@ -384,7 +384,7 @@ All deployment files are organized in the `deployment/` directory:
 
 - See `deployment/README.md` for deployment structure
 - See `TESTING.md` for testing guidelines
-- See `tools/postman/README.md` for Postman usage
+- See `postman/README.md` and `doc/guides/postman-setup.md` for Postman usage
 - See `doc/contract/` for API contracts
 - See `.augment/context.md` for architecture
 

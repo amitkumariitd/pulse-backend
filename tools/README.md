@@ -2,28 +2,18 @@
 
 This directory contains development and testing tools for pulse-backend.
 
-## Structure
-
-```
-tools/
-├── README.md              # This file
-└── postman/               # Postman API testing
-    ├── README.md
-    └── pulse-backend.postman_collection.json
-```
-
 ## Postman
 
-API testing collection for manual testing and debugging.
+API testing collections are located in the `postman/` directory at the repository root.
 
 ### Quick Start
 
 1. Install Postman: https://www.postman.com/downloads/
-2. Import collection: `tools/postman/pulse-backend.postman_collection.json`
+2. Import collections from `postman/` directory
 3. Start the application: `make up`
 4. Test endpoints in Postman
 
-See [postman/README.md](postman/README.md) for detailed usage.
+See [postman/README.md](../postman/README.md) and [doc/guides/postman-setup.md](../doc/guides/postman-setup.md) for detailed usage.
 
 ## Future Tools
 

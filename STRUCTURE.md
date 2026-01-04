@@ -23,10 +23,7 @@ pulse-backend/
 │       └── deploy-prod.sh     # Production deployment
 │
 ├── tools/                      # 🆕 Development tools
-│   ├── README.md              # Tools overview
-│   └── postman/               # API testing
-│       ├── README.md
-│       └── pulse-backend.postman_collection.json
+│   └── README.md              # Tools overview
 │
 ├── doc/                        # Documentation
 │   ├── deployment.md          # 🆕 Deployment guide
@@ -91,8 +88,8 @@ pulse-backend/
    - Added `deployment/README.md`
 
 2. **Created `tools/` directory**
-   - Moved Postman collection to `tools/postman/`
-   - Added `tools/README.md`
+   - Added `tools/README.md` for future development tools
+   - Postman collections remain in `postman/` directory
 
 3. **Updated documentation**
    - Renamed `DOCKER.md` → `doc/deployment.md`

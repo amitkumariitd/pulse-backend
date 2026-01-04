@@ -37,14 +37,9 @@ def test_create_order_success():
         assert response.status_code == 201
         data = response.json()
         assert data["order_id"].startswith("ord")
-        assert data["order_queue_status"] == "PENDING"
-        assert data["instrument"] == "NSE:RELIANCE"
-        assert data["side"] == "BUY"
-        assert data["total_quantity"] == 100
-        assert data["num_splits"] == 5
-        assert data["duration_minutes"] == 60
-        assert data["randomize"] == True
-        assert "created_at" in data
+        assert data["order_unique_key"] == order_data["order_unique_key"]
+        # Only order_id and order_unique_key should be in response
+        assert set(data.keys()) == {"order_id", "order_unique_key"}
 
         # Verify tracing headers
         assert response.headers["X-Request-Id"] == "r1234567890abcdef1234"

@@ -82,24 +82,13 @@ Place an order that supports splitting into multiple slices executed over time.
 ```json
 {
   "order_id": "ord_abc123",
-  "order_queue_status": "PENDING",
-  "instrument": "NSE:RELIANCE",
-  "side": "BUY",
-  "total_quantity": 100,
-  "num_splits": 5,
-  "duration_minutes": 60
+  "order_unique_key": "test-order-123"
 }
 ```
 
 **Response Fields**:
 - `order_id` (string): Unique identifier for the order (parent order)
-- `order_queue_status` (string): Current splitting lifecycle status (always `"PENDING"` on creation)
-  - See `OrderQueueStatus` enum in `common.md`
-- `instrument` (string): Trading symbol (echoed from request)
-- `side` (string): Order side (echoed from request)
-- `total_quantity` (integer): Total quantity (echoed from request)
-- `num_splits` (integer): Number of splits (from split_config)
-- `duration_minutes` (integer): Duration in minutes (from split_config)
+- `order_unique_key` (string): Client-provided unique key (echoed from request)
 
 **Error Responses**:
 

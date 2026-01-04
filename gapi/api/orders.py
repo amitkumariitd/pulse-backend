@@ -129,16 +129,11 @@ async def create_order(
         logger.info("Order created successfully", ctx, data={
             "order_id": response.order_id
         })
-        
-        # Return response without created_at (not in GAPI contract)
+
+        # Return minimal response per GAPI contract
         return OrderResponse(
             order_id=response.order_id,
-            order_queue_status=response.order_queue_status,
-            instrument=response.instrument,
-            side=response.side,
-            total_quantity=response.total_quantity,
-            num_splits=response.num_splits,
-            duration_minutes=response.duration_minutes
+            order_unique_key=order_data.order_unique_key
         )
         
     except httpx.HTTPStatusError as e:

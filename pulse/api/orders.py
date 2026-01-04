@@ -79,17 +79,10 @@ async def create_order(
         
         logger.info("Order created successfully", ctx, data={"order_id": order_id})
         
-        # Return response
+        # Return minimal response
         return OrderResponse(
             order_id=created_order['id'],
-            order_queue_status=created_order['order_queue_status'],
-            instrument=created_order['instrument'],
-            side=created_order['side'],
-            total_quantity=created_order['total_quantity'],
-            num_splits=created_order['num_splits'],
-            duration_minutes=created_order['duration_minutes'],
-            randomize=created_order['randomize'],
-            created_at=created_order['created_at']
+            order_unique_key=created_order['order_unique_key']
         )
         
     except asyncpg.UniqueViolationError:

@@ -47,14 +47,7 @@ async def test_create_order_success():
     mock_repo = AsyncMock()
     mock_repo.create_order.return_value = {
         'id': 'ord1234567890abcdef',
-        'order_queue_status': 'PENDING',
-        'instrument': 'NSE:RELIANCE',
-        'side': 'BUY',
-        'total_quantity': 100,
-        'num_splits': 5,
-        'duration_minutes': 60,
-        'randomize': True,
-        'created_at': 1704067200000000
+        'order_unique_key': 'ouk_test123'
     }
     
     request = MagicMock(spec=Request)
@@ -83,15 +76,8 @@ async def test_create_order_success():
     
     # Assert
     assert response.order_id == 'ord1234567890abcdef'
-    assert response.order_queue_status == 'PENDING'
-    assert response.instrument == 'NSE:RELIANCE'
-    assert response.side == 'BUY'
-    assert response.total_quantity == 100
-    assert response.num_splits == 5
-    assert response.duration_minutes == 60
-    assert response.randomize == True
-    assert response.created_at == 1704067200000000
-    
+    assert response.order_unique_key == 'ouk_test123'
+
     # Verify repository was called
     mock_repo.create_order.assert_called_once()
 

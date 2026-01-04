@@ -106,14 +106,7 @@ async def test_create_order_success():
     
     mock_pulse_response = OrderResponse(
         order_id="ord1234567890abcdef",
-        order_queue_status="PENDING",
-        instrument="NSE:RELIANCE",
-        side="BUY",
-        total_quantity=100,
-        num_splits=5,
-        duration_minutes=60,
-        randomize=True,
-        created_at=1704067200000000
+        order_unique_key="ouk_test123"
     )
     
     mock_pulse_client = AsyncMock()
@@ -125,15 +118,8 @@ async def test_create_order_success():
     
     # Assert
     assert response.order_id == "ord1234567890abcdef"
-    assert response.order_queue_status == "PENDING"
-    assert response.instrument == "NSE:RELIANCE"
-    assert response.side == "BUY"
-    assert response.total_quantity == 100
-    assert response.num_splits == 5
-    assert response.duration_minutes == 60
-    # created_at should not be in GAPI response
-    assert response.created_at is None
-    
+    assert response.order_unique_key == "ouk_test123"
+
     # Verify Pulse client was called
     mock_pulse_client.create_order.assert_called_once()
 

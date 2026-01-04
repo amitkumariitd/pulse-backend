@@ -61,22 +61,8 @@ class InternalCreateOrderRequest(BaseModel):
 
 class OrderResponse(BaseModel):
     """Response model for order creation."""
-    model_config = {"json_schema_extra": {"exclude_none": True}}
-
     order_id: str
-    order_queue_status: str
-    instrument: str
-    side: str
-    total_quantity: int
-    num_splits: int
-    duration_minutes: int
-    randomize: bool | None = None
-    created_at: int | None = None
-
-    def model_dump(self, **kwargs):
-        """Override to exclude None values by default."""
-        kwargs.setdefault('exclude_none', True)
-        return super().model_dump(**kwargs)
+    order_unique_key: str
 
 
 class ErrorDetail(BaseModel):

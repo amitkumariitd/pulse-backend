@@ -115,14 +115,7 @@ async def test_create_order_success():
     
     mock_pulse_response = OrderResponse(
         order_id="ord1234567890abcdef",
-        order_queue_status="PENDING",
-        instrument="NSE:RELIANCE",
-        side="BUY",
-        total_quantity=100,
-        num_splits=5,
-        duration_minutes=60,
-        randomize=True,
-        created_at=1704067200000000
+        order_unique_key="ouk_test123"
     )
     
     mock_pulse_client = AsyncMock()
@@ -136,17 +129,10 @@ async def test_create_order_success():
     assert response.status_code == 202
     data = response.json()
     assert data["order_id"] == "ord1234567890abcdef"
-    assert data["order_queue_status"] == "PENDING"
-    assert data["instrument"] == "NSE:RELIANCE"
-    assert data["side"] == "BUY"
-    assert data["total_quantity"] == 100
-    assert data["num_splits"] == 5
-    assert data["duration_minutes"] == 60
-    # created_at should be None in GAPI response (not populated from Pulse)
-    assert data.get("created_at") is None
-    # randomize should be None in GAPI response (not populated from Pulse)
-    assert data.get("randomize") is None
-    
+    assert data["order_unique_key"] == "ouk_test123"
+    # Only order_id and order_unique_key should be in response
+    assert set(data.keys()) == {"order_id", "order_unique_key"}
+
     # Verify tracing headers
     assert "X-Request-Id" in response.headers
     assert "X-Trace-Id" in response.headers

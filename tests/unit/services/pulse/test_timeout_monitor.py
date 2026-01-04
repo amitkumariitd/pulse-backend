@@ -53,8 +53,13 @@ async def test_recover_stuck_orders_success():
     assert "Processing timeout" in params[0]
     assert "5 minutes" in params[0]
 
-    # Check context propagation
-    assert params[2] == ctx.request_id
+    # Check context propagation (request_id is now param[1], threshold_time is param[2])
+    assert params[1] == ctx.request_id
+
+    # Verify threshold_time is a datetime object
+    from datetime import datetime, timezone
+    assert isinstance(params[2], datetime)
+    assert params[2].tzinfo == timezone.utc
 
 
 @pytest.mark.asyncio
@@ -114,14 +119,18 @@ async def test_recover_stuck_orders_custom_timeout():
     # Error message should mention 10 minutes
     assert "10 minutes" in params[0]
 
-    # Threshold should be calculated correctly
-    # params[3] is the threshold_micros (after removing span_id)
-    current_time_micros = int(time.time() * 1_000_000)
-    timeout_micros = 10 * 60 * 1_000_000
-    expected_threshold = current_time_micros - timeout_micros
+    # Threshold should be a datetime object (params[2])
+    from datetime import datetime, timezone, timedelta
+    threshold_time = params[2]
+    assert isinstance(threshold_time, datetime)
+    assert threshold_time.tzinfo == timezone.utc
+
+    # Verify it's approximately 10 minutes ago
+    expected_threshold = datetime.now(timezone.utc) - timedelta(minutes=10)
+    time_diff = abs((threshold_time - expected_threshold).total_seconds())
 
     # Allow 1 second tolerance for test execution time
-    assert abs(params[3] - expected_threshold) < 1_000_000
+    assert time_diff < 1
 
 
 @pytest.mark.asyncio

@@ -10,8 +10,6 @@ import pytest
 from pulse.splitting import (
     SplitSlice,
     calculate_split_schedule,
-    datetime_to_micros,
-    micros_to_datetime,
 )
 
 
@@ -115,15 +113,4 @@ def test_invalid_inputs_raise_value_error(
             randomize=False,
         )
 
-
-def test_unix_microsecond_conversions_round_trip():
-    """datetime <-> Unix microseconds conversions are precise."""
-    base = _dt(2025, 12, 29, 10, 0)
-    dt = base + timedelta(seconds=123, microseconds=456)
-
-    micros = datetime_to_micros(dt)
-    round_tripped = micros_to_datetime(micros)
-
-    assert round_tripped == dt
-    assert round_tripped.tzinfo == timezone.utc
 

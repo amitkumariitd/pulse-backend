@@ -30,8 +30,8 @@ def mock_ctx():
 @pytest.fixture
 def sample_order():
     """Create a sample order record."""
-    # Unix microseconds for 2025-12-29 10:00:00 UTC
-    created_at_micros = 1735466400000000
+    # TIMESTAMPTZ is returned as datetime object from database
+    created_at = datetime(2025, 12, 29, 10, 0, 0, tzinfo=timezone.utc)
 
     return {
         'id': 'order_123',
@@ -41,7 +41,7 @@ def sample_order():
         'num_splits': 5,
         'duration_minutes': 60,
         'randomize': False,
-        'created_at': created_at_micros,
+        'created_at': created_at,
         'order_queue_status': 'PENDING',
         'trace_id': 't1234567890abcdef1234',
         'trace_source': 'TEST:parent_order'

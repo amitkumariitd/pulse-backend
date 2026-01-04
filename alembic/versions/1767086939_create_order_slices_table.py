@@ -30,12 +30,12 @@ def upgrade() -> None:
             sequence_number INTEGER NOT NULL CHECK (sequence_number > 0),
             status VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED'
                 CHECK (status IN ('SCHEDULED', 'READY', 'EXECUTING', 'EXECUTED', 'FAILED', 'SKIPPED')),
-            scheduled_at BIGINT NOT NULL,
+            scheduled_at TIMESTAMPTZ NOT NULL,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
             trace_source VARCHAR(50) NOT NULL,
-            created_at BIGINT NOT NULL DEFAULT unix_now_micros(),
-            updated_at BIGINT NOT NULL DEFAULT unix_now_micros(),
+            created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+            updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             CONSTRAINT unique_order_sequence UNIQUE (order_id, sequence_number)
         )
     """)
@@ -53,7 +53,7 @@ def upgrade() -> None:
         CREATE TABLE order_slices_history (
             history_id BIGSERIAL PRIMARY KEY,
             operation VARCHAR(10) NOT NULL CHECK (operation IN ('INSERT', 'UPDATE', 'DELETE')),
-            changed_at BIGINT NOT NULL DEFAULT unix_now_micros(),
+            changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             id VARCHAR(64) NOT NULL,
             order_id VARCHAR(64) NOT NULL,
             instrument VARCHAR(50) NOT NULL,
@@ -61,12 +61,12 @@ def upgrade() -> None:
             quantity INTEGER NOT NULL,
             sequence_number INTEGER NOT NULL,
             status VARCHAR(20) NOT NULL,
-            scheduled_at BIGINT NOT NULL,
+            scheduled_at TIMESTAMPTZ NOT NULL,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
             trace_source VARCHAR(50) NOT NULL,
-            created_at BIGINT NOT NULL,
-            updated_at BIGINT NOT NULL
+            created_at TIMESTAMPTZ NOT NULL,
+            updated_at TIMESTAMPTZ NOT NULL
         )
     """)
     

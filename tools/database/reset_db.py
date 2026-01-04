@@ -34,7 +34,6 @@ async def reset_db():
     await conn.execute("DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE")
     await conn.execute("DROP FUNCTION IF EXISTS orders_history_trigger() CASCADE")
     await conn.execute("DROP FUNCTION IF EXISTS order_slices_history_trigger() CASCADE")
-    await conn.execute("DROP FUNCTION IF EXISTS unix_now_micros() CASCADE")
     
     # Update alembic version to base
     await conn.execute("DELETE FROM alembic_version")

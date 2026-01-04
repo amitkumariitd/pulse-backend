@@ -11,7 +11,7 @@ This implements Pattern 5 from doc/guides/concurrency.md
 
 import asyncio
 import asyncpg
-import time
+from datetime import datetime, timedelta, timezone
 from shared.observability.context import RequestContext, generate_trace_id, generate_request_id
 from shared.observability.logger import get_logger
 
@@ -35,27 +35,24 @@ async def recover_stuck_orders(
     """
     conn = await pool.acquire()
     try:
-        # Calculate timeout threshold in microseconds
-        # updated_at is stored as Unix microseconds
-        timeout_micros = timeout_minutes * 60 * 1_000_000
-        current_time_micros = int(time.time() * 1_000_000)
-        threshold_micros = current_time_micros - timeout_micros
-        
+        # Calculate timeout threshold
+        # updated_at is stored as TIMESTAMPTZ
+        threshold_time = datetime.now(timezone.utc) - timedelta(minutes=timeout_minutes)
+
         # Update stuck orders to FAILED
+        # Note: We don't set updated_at explicitly - the trigger will handle it
         result = await conn.execute(
             """
             UPDATE orders
             SET order_queue_status = 'FAILED',
                 order_queue_skip_reason = $1,
-                updated_at = $2,
-                request_id = $3
+                request_id = $2
             WHERE order_queue_status = 'IN_PROGRESS'
-              AND updated_at < $4
+              AND updated_at < $3
             """,
             f"Processing timeout - worker may have crashed (timeout: {timeout_minutes} minutes)",
-            current_time_micros,
             ctx.request_id,
-            threshold_micros
+            threshold_time
         )
         
         # Extract count from result (format: "UPDATE N")

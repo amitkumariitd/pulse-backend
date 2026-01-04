@@ -10,7 +10,6 @@ from datetime import datetime, timezone
 from pulse.workers.splitting_worker import process_single_order
 from pulse.repositories.order_repository import OrderRepository
 from pulse.repositories.order_slice_repository import OrderSliceRepository
-from pulse.splitting import datetime_to_micros
 from shared.observability.context import RequestContext
 from shared.database.pool import create_pool, close_pool
 from config.settings import get_settings

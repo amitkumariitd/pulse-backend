@@ -15,7 +15,7 @@ import time
 from datetime import datetime, timezone
 from typing import Optional
 
-from pulse.splitting import calculate_split_schedule, datetime_to_micros, micros_to_datetime
+from pulse.splitting import calculate_split_schedule
 from pulse.repositories.order_repository import OrderRepository
 from pulse.repositories.order_slice_repository import OrderSliceRepository
 from shared.observability.context import RequestContext, generate_trace_id, generate_request_id
@@ -74,8 +74,8 @@ async def process_single_order(
             "num_splits": order['num_splits']
         })
 
-        # Convert created_at from unix microseconds to datetime
-        parent_created_at = micros_to_datetime(order['created_at'])
+        # created_at is already a datetime object (TIMESTAMPTZ from database)
+        parent_created_at = order['created_at']
 
         # Calculate split schedule
         slices = calculate_split_schedule(
@@ -96,7 +96,7 @@ async def process_single_order(
                 'side': order['side'],
                 'quantity': split_slice.quantity,
                 'sequence_number': split_slice.sequence_number,
-                'scheduled_at': datetime_to_micros(split_slice.scheduled_at)
+                'scheduled_at': split_slice.scheduled_at  # datetime object, asyncpg handles conversion
             })
 
         # Create all slices in batch

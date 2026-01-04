@@ -11,7 +11,6 @@ from datetime import datetime, timezone, timedelta
 from pulse.repositories.order_repository import OrderRepository
 from pulse.repositories.order_slice_repository import OrderSliceRepository
 from pulse.workers.splitting_worker import process_single_order
-from pulse.splitting import datetime_to_micros, micros_to_datetime
 from shared.observability.context import RequestContext
 from shared.database.pool import create_pool, close_pool
 from config.settings import get_settings
@@ -83,11 +82,12 @@ async def test_full_flow_acceptance_to_splitting():
         assert total_quantity == 100
 
         # Verify all scheduled times are within duration window
-        parent_created_at = micros_to_datetime(created_order['created_at'])
+        # created_at and scheduled_at are already datetime objects (TIMESTAMPTZ from database)
+        parent_created_at = created_order['created_at']
         time_window_end = parent_created_at + timedelta(minutes=60)
 
         for slice_record in slices:
-            scheduled_at = micros_to_datetime(slice_record['scheduled_at'])
+            scheduled_at = slice_record['scheduled_at']
             assert parent_created_at <= scheduled_at <= time_window_end
             assert slice_record['status'] == 'SCHEDULED'
 
@@ -171,12 +171,13 @@ async def test_time_window_constraint_enforcement():
 
         # Verify all scheduled times are within window
         slices = await slice_repo.get_slices_by_order_id(order_id, ctx)
-        parent_created_at = micros_to_datetime(created_order['created_at'])
+        # created_at and scheduled_at are already datetime objects (TIMESTAMPTZ from database)
+        parent_created_at = created_order['created_at']
         time_window_start = parent_created_at
         time_window_end = parent_created_at + timedelta(minutes=120)
 
         for slice_record in slices:
-            scheduled_at = micros_to_datetime(slice_record['scheduled_at'])
+            scheduled_at = slice_record['scheduled_at']
             # CRITICAL: All scheduled times MUST be within window
             assert time_window_start <= scheduled_at <= time_window_end, \
                 f"Slice {slice_record['id']} scheduled_at {scheduled_at} outside window [{time_window_start}, {time_window_end}]"

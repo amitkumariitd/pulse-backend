@@ -222,7 +222,7 @@ class OrderRepository(BaseRepository):
                 """
                 UPDATE orders
                 SET order_queue_status = 'COMPLETED',
-                    split_completed_at = unix_now_micros()
+                    split_completed_at = NOW()
                 WHERE id = $1
                 """,
                 order_id

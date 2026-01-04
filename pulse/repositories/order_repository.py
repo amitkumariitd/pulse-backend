@@ -54,9 +54,9 @@ class OrderRepository(BaseRepository):
                     id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key,
                     order_queue_status,
-                    trace_id, request_id, span_id, trace_source
+                    trace_id, request_id, trace_source
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
                 RETURNING *
                 """,
                 order_id,
@@ -70,7 +70,6 @@ class OrderRepository(BaseRepository):
                 'PENDING',  # Initial status
                 ctx.trace_id,
                 ctx.request_id,
-                ctx.span_id,
                 ctx.trace_source
             )
             

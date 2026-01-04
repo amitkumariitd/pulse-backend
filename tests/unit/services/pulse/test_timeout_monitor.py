@@ -8,7 +8,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import time
-from shared.observability.context import RequestContext, is_valid_trace_id, is_valid_request_id, is_valid_span_id
+from shared.observability.context import RequestContext, is_valid_trace_id, is_valid_request_id
 from pulse.workers.timeout_monitor import recover_stuck_orders, run_timeout_monitor
 
 
@@ -27,7 +27,6 @@ async def test_recover_stuck_orders_success():
         trace_source="TEST",
         request_id="r1234567890abcdef1234",
         request_source="TEST",
-        span_id="s12345678",
         span_source="TEST"
     )
 
@@ -56,7 +55,6 @@ async def test_recover_stuck_orders_success():
 
     # Check context propagation
     assert params[2] == ctx.request_id
-    assert params[3] == ctx.span_id
 
 
 @pytest.mark.asyncio
@@ -74,7 +72,6 @@ async def test_recover_stuck_orders_no_stuck_orders():
         trace_source="TEST",
         request_id="r1234567890abcdef1234",
         request_source="TEST",
-        span_id="s12345678",
         span_source="TEST"
     )
 
@@ -101,7 +98,6 @@ async def test_recover_stuck_orders_custom_timeout():
         trace_source="TEST",
         request_id="r1234567890abcdef1234",
         request_source="TEST",
-        span_id="s12345678",
         span_source="TEST"
     )
 
@@ -119,13 +115,13 @@ async def test_recover_stuck_orders_custom_timeout():
     assert "10 minutes" in params[0]
 
     # Threshold should be calculated correctly
-    # params[4] is the threshold_micros
+    # params[3] is the threshold_micros (after removing span_id)
     current_time_micros = int(time.time() * 1_000_000)
     timeout_micros = 10 * 60 * 1_000_000
     expected_threshold = current_time_micros - timeout_micros
 
     # Allow 1 second tolerance for test execution time
-    assert abs(params[4] - expected_threshold) < 1_000_000
+    assert abs(params[3] - expected_threshold) < 1_000_000
 
 
 @pytest.mark.asyncio
@@ -143,7 +139,6 @@ async def test_recover_stuck_orders_database_error():
         trace_source="TEST",
         request_id="r1234567890abcdef1234",
         request_source="TEST",
-        span_id="s12345678",
         span_source="TEST"
     )
 
@@ -180,7 +175,6 @@ async def test_timeout_monitor_creates_valid_context():
     assert captured_ctx is not None
     assert is_valid_trace_id(captured_ctx.trace_id), f"Invalid trace_id: {captured_ctx.trace_id}"
     assert is_valid_request_id(captured_ctx.request_id), f"Invalid request_id: {captured_ctx.request_id}"
-    assert is_valid_span_id(captured_ctx.span_id), f"Invalid span_id: {captured_ctx.span_id}"
     assert captured_ctx.trace_source == "PULSE_BACKGROUND:timeout_monitor"
     assert captured_ctx.request_source == "PULSE_BACKGROUND:timeout_monitor"
     assert captured_ctx.span_source == "PULSE_BACKGROUND:timeout_monitor"

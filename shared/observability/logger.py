@@ -27,9 +27,7 @@ STRUCTURED_KEYS = {
 	"request_id",
 	"request_source",
 	"order_id",
-	"span_id",
 	"span_source",
-	"parent_span_id",
 }
 
 
@@ -83,7 +81,7 @@ class StructuredLogger:
 			"message": message,
 		}
 
-		# Include context if provided (trace_id, request_id, span_id, ...)
+		# Include context if provided (trace_id, request_id, span_source, ...)
 		if ctx:
 			log_entry.update(ctx.to_dict())
 

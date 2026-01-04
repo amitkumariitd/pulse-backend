@@ -68,7 +68,6 @@ def test_logger_includes_context_fields_top_level():
         trace_source="SRC",
         request_id="r456",
         request_source="REQ",
-        span_id="s789abcd",
         span_source="SPAN",
     )
 
@@ -79,7 +78,7 @@ def test_logger_includes_context_fields_top_level():
     # Context fields are top-level
     assert payload["trace_id"] == "t123"
     assert payload["request_id"] == "r456"
-    assert payload["span_id"] == "s789abcd"
+    assert payload["span_source"] == "SPAN"
     assert payload["data"] == {"x": 1}
 
 
@@ -91,7 +90,6 @@ def test_logger_allows_structured_top_level_overrides():
         trace_source="SRC",
         request_id="r-ctx",
         request_source="REQ",
-        span_id="sctxabcd",
         span_source="SPAN",
     )
 

@@ -27,7 +27,6 @@ def request_context():
         trace_source="TEST:test",
         request_id="r1234567890abcdef1234",
         request_source="TEST:test",
-        span_id="s12345678",
         span_source="TEST:test"
     )
 

@@ -24,7 +24,6 @@
 
 **Required columns** (every table):
 - `request_id` - Request identifier
-- `span_id` - Span identifier for this operation
 
 **Additional columns** (async-initiating tables only):
 - `trace_id` - Distributed tracing ID (needed for async continuation)
@@ -73,7 +72,7 @@
 - `id` - Primary key (VARCHAR or UUID)
 - `created_at` - BIGINT (Unix microseconds), auto-set by database
 - `updated_at` - BIGINT (Unix microseconds), auto-updated by trigger
-- `request_id`, `span_id` - Tracing (VARCHAR)
+- `request_id` - Tracing (VARCHAR)
 
 ### Additional Columns (Async-Initiating Tables)
 - `trace_id` - VARCHAR(64), trace identifier for distributed tracing

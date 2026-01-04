@@ -54,7 +54,6 @@ async def test_create_order_quantity_validation():
         trace_source="TEST",
         request_id="r1234567890abcdef1234",
         request_source="TEST",
-        span_id="s12345678",
         span_source="TEST"
     )
     
@@ -88,7 +87,6 @@ async def test_create_order_success():
         trace_source="TEST",
         request_id="r1234567890abcdef1234",
         request_source="TEST",
-        span_id="s12345678",
         span_source="TEST"
     )
     

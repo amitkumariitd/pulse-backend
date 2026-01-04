@@ -23,7 +23,6 @@ def create_test_ctx():
         trace_source="TEST:splitting_worker_integration",
         request_id="r1234567890abcdef1234",
         request_source="TEST:splitting_worker_integration",
-        span_id="s12345678",
         span_source="TEST:splitting_worker_integration"
     )
 

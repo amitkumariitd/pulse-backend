@@ -182,7 +182,7 @@ Stores the original order request with split configuration. Tracks only the spli
 - `split_completed_at` (TIMESTAMPTZ) - When child order creation completed
 
 **Standard Columns**:
-- Tracing: `trace_id`, `request_id`, `span_id`, `trace_source`
+- Tracing: `trace_id`, `request_id`, `trace_source`
 - Timestamps: `created_at`, `updated_at`
 
 ---
@@ -205,7 +205,7 @@ Stores individual split orders ready for execution. Execution tracking is out of
 - `scheduled_at` (TIMESTAMPTZ) - When this order should execute (calculated during splitting)
 
 **Standard Columns**:
-- Tracing: `trace_id`, `request_id`, `span_id`, `trace_source`
+- Tracing: `trace_id`, `request_id`, `trace_source`
 - Timestamps: `created_at`, `updated_at`
 
 **Note**: Execution-related columns (broker_order_id, execution_price, etc.) will be added in the execution feature.

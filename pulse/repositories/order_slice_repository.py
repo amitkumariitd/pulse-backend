@@ -52,9 +52,9 @@ class OrderSliceRepository(BaseRepository):
                 INSERT INTO order_slices (
                     id, order_id, instrument, side, quantity,
                     sequence_number, status, scheduled_at,
-                    trace_id, request_id, span_id, trace_source
+                    trace_id, request_id, trace_source
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                 RETURNING *
                 """,
                 slice_id,
@@ -67,7 +67,6 @@ class OrderSliceRepository(BaseRepository):
                 scheduled_at,
                 ctx.trace_id,
                 ctx.request_id,
-                ctx.span_id,
                 ctx.trace_source
             )
             
@@ -116,9 +115,9 @@ class OrderSliceRepository(BaseRepository):
                         INSERT INTO order_slices (
                             id, order_id, instrument, side, quantity,
                             sequence_number, status, scheduled_at,
-                            trace_id, request_id, span_id, trace_source
+                            trace_id, request_id, trace_source
                         )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
                         """,
                         slice_data['id'],
                         slice_data['order_id'],
@@ -130,7 +129,6 @@ class OrderSliceRepository(BaseRepository):
                         slice_data['scheduled_at'],
                         ctx.trace_id,
                         ctx.request_id,
-                        ctx.span_id,
                         ctx.trace_source
                     )
                     count += 1

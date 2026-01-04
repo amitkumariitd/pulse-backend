@@ -24,7 +24,6 @@ def create_test_ctx(suffix=""):
         trace_source="TEST:full_flow",
         request_id=f"r1234567890abcdef{suffix}",
         request_source="TEST:full_flow",
-        span_id=f"s1234567{suffix}",
         span_source="TEST:full_flow"
     )
 

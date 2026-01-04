@@ -18,7 +18,7 @@ from typing import Optional
 from pulse.splitting import calculate_split_schedule, datetime_to_micros, micros_to_datetime
 from pulse.repositories.order_repository import OrderRepository
 from pulse.repositories.order_slice_repository import OrderSliceRepository
-from shared.observability.context import RequestContext, generate_trace_id, generate_request_id, generate_span_id
+from shared.observability.context import RequestContext, generate_trace_id, generate_request_id
 from shared.observability.logger import get_logger
 
 logger = get_logger("pulse.workers.splitting")
@@ -55,13 +55,12 @@ async def process_single_order(
     order_id = order['id']
 
     # Create a new context that inherits the parent order's trace_id and trace_source
-    # but generates new request_id and span_id for this background operation
+    # but generates new request_id for this background operation
     order_ctx = RequestContext(
         trace_id=order['trace_id'],  # Use parent order's trace_id
         trace_source=order['trace_source'],  # Use parent order's trace_source
         request_id=generate_request_id(),  # New request_id for this worker operation
         request_source="PULSE_BACKGROUND:splitting_worker",
-        span_id=generate_span_id(),  # New span_id for this operation
         span_source="PULSE_BACKGROUND:splitting_worker"
     )
 
@@ -167,7 +166,6 @@ async def run_splitting_worker(
                 trace_source="PULSE_BACKGROUND:splitting_worker",
                 request_id=generate_request_id(),
                 request_source="PULSE_BACKGROUND:splitting_worker",
-                span_id=generate_span_id(),
                 span_source="PULSE_BACKGROUND:splitting_worker"
             )
 

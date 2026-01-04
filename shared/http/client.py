@@ -9,13 +9,9 @@ class ContextPropagatingClient:
 
     Automatically adds headers for:
     - Tracing: X-Trace-Id, X-Request-Id, X-Trace-Source, X-Request-Source
-    - Span: X-Parent-Span-Id (current span_id, becomes parent_span_id in receiving service)
 
     The receiving service will:
-    - Read X-Parent-Span-Id as parent_span_id
-    - Generate a NEW span_id for its own operation
     - Build span_source from parent's request_source
-    - Build span hierarchy for distributed tracing
 
     Usage:
         client = ContextPropagatingClient("http://localhost:8001")
@@ -33,14 +29,12 @@ class ContextPropagatingClient:
         context = get_context()
 
         # Map context fields to HTTP headers
-        # Note: span_id is sent as X-Parent-Span-Id (becomes parent in receiving service)
         # span_source is NOT sent - receiving service builds its own
         header_mapping = {
             'trace_id': 'X-Trace-Id',
             'trace_source': 'X-Trace-Source',
             'request_id': 'X-Request-Id',
             'request_source': 'X-Request-Source',
-            'span_id': 'X-Parent-Span-Id'
         }
 
         for ctx_key, header_key in header_mapping.items():

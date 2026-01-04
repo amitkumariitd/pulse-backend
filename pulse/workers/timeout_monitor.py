@@ -12,7 +12,7 @@ This implements Pattern 5 from doc/guides/concurrency.md
 import asyncio
 import asyncpg
 import time
-from shared.observability.context import RequestContext, generate_trace_id, generate_request_id, generate_span_id
+from shared.observability.context import RequestContext, generate_trace_id, generate_request_id
 from shared.observability.logger import get_logger
 
 logger = get_logger("pulse.workers.timeout_monitor")
@@ -48,15 +48,13 @@ async def recover_stuck_orders(
             SET order_queue_status = 'FAILED',
                 order_queue_skip_reason = $1,
                 updated_at = $2,
-                request_id = $3,
-                span_id = $4
+                request_id = $3
             WHERE order_queue_status = 'IN_PROGRESS'
-              AND updated_at < $5
+              AND updated_at < $4
             """,
             f"Processing timeout - worker may have crashed (timeout: {timeout_minutes} minutes)",
             current_time_micros,
             ctx.request_id,
-            ctx.span_id,
             threshold_micros
         )
         
@@ -103,7 +101,6 @@ async def run_timeout_monitor(
                 trace_source="PULSE_BACKGROUND:timeout_monitor",
                 request_id=generate_request_id(),
                 request_source="PULSE_BACKGROUND:timeout_monitor",
-                span_id=generate_span_id(),
                 span_source="PULSE_BACKGROUND:timeout_monitor"
             )
             

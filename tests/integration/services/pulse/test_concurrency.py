@@ -23,7 +23,6 @@ def create_test_ctx(suffix=""):
         trace_source="TEST:concurrency",
         request_id=f"r_concurrency_{suffix}",
         request_source="TEST:concurrency",
-        span_id=f"s_conc_{suffix}",
         span_source="TEST:concurrency"
     )
 

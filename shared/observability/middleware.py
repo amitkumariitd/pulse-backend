@@ -6,7 +6,6 @@ from .context import (
     RequestContext,
     generate_trace_id,
     generate_request_id,
-    generate_span_id,
     set_current_context,
     reset_current_context,
 )
@@ -18,11 +17,8 @@ class ContextMiddleware:
 
     Extracts tracing headers:
     - X-Trace-Id, X-Request-Id, X-Trace-Source, X-Request-Source
-    - X-Parent-Span-Id (treated as parent_span_id)
 
     Generates trace_id, request_id if not provided.
-    Always generates a NEW span_id for each incoming request.
-    Treats incoming X-Parent-Span-Id as parent_span_id for span hierarchy tracking.
     Builds span_source by appending current request_source to parent's request_source.
     """
 
@@ -41,12 +37,6 @@ class ContextMiddleware:
         # Extract or generate tracing IDs
         trace_id = request.headers.get('X-Trace-Id') or generate_trace_id()
         request_id = request.headers.get('X-Request-Id') or generate_request_id()
-
-        # Extract parent_span_id from incoming X-Parent-Span-Id header (if present)
-        parent_span_id = request.headers.get('X-Parent-Span-Id')
-
-        # Always generate NEW span_id for this service's operation
-        span_id = generate_span_id()
 
         # Get HTTP method and path for endpoint identifier
         method = scope.get("method", "GET")
@@ -71,9 +61,7 @@ class ContextMiddleware:
             trace_source=trace_source,
             request_id=request_id,
             request_source=request_source,
-            span_id=span_id,
-            span_source=span_source,
-            parent_span_id=parent_span_id
+            span_source=span_source
         )
 
         # Attach context to scope state
@@ -90,7 +78,6 @@ class ContextMiddleware:
                 headers = list(message.get("headers", []))
                 headers.append((b"x-trace-id", trace_id.encode()))
                 headers.append((b"x-request-id", request_id.encode()))
-                headers.append((b"x-span-id", span_id.encode()))
                 message["headers"] = headers
             await send(message)
 

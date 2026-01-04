@@ -12,7 +12,7 @@ from pulse.workers.splitting_worker import (
     process_single_order,
     run_splitting_worker
 )
-from shared.observability.context import RequestContext, is_valid_trace_id, is_valid_request_id, is_valid_span_id
+from shared.observability.context import RequestContext, is_valid_trace_id, is_valid_request_id
 
 
 @pytest.fixture
@@ -23,7 +23,6 @@ def mock_ctx():
         trace_source="TEST:splitting_worker",
         request_id="r1234567890abcdef1234",
         request_source="TEST:splitting_worker",
-        span_id="s12345678",
         span_source="TEST:splitting_worker"
     )
 
@@ -203,7 +202,6 @@ async def test_splitting_worker_creates_valid_context():
     assert captured_ctx is not None
     assert is_valid_trace_id(captured_ctx.trace_id), f"Invalid trace_id: {captured_ctx.trace_id}"
     assert is_valid_request_id(captured_ctx.request_id), f"Invalid request_id: {captured_ctx.request_id}"
-    assert is_valid_span_id(captured_ctx.span_id), f"Invalid span_id: {captured_ctx.span_id}"
     assert captured_ctx.trace_source == "PULSE_BACKGROUND:splitting_worker"
     assert captured_ctx.request_source == "PULSE_BACKGROUND:splitting_worker"
     assert captured_ctx.span_source == "PULSE_BACKGROUND:splitting_worker"

@@ -30,8 +30,7 @@ Mandatory enforcement lives in `RULES.md`.
 | trace_source | Origin of the trace                            |
 | request_id | Synchronous request identifier (starts with `r`) |
 | request_source | Origin of the request                          |
-| span_id | Individual operation identifier (starts with `s`) |
-| span_source | Service call path for the span                 |
+| span_source | Service call path (for logging only, not stored in DB) |
 
 ---
 
@@ -64,26 +63,18 @@ trace_source = GAPI:POST/api/orders
 
 ---
 
-### span_id & span_source & parent_span_id
-- `span_id` starts with `s`
-- **Always generated fresh** for each service operation
-- When receiving HTTP requests, incoming `X-Span-Id` is treated as `parent_span_id`
-- Each service generates its own NEW `span_id` and logs the `parent_span_id`
-- `span_source` shows the service call path (built by appending to parent's span_source)
-
-**Format:** `s` + 8 hexadecimal characters
+### span_source
+- `span_source` shows the service call path
+- Built by appending current service to parent's `request_source`
+- Used for logging only, NOT stored in database
 
 **Example:**
 ```
 # Service A (GAPI)
-span_id = sa1b2c3d4
 span_source = GAPI:POST/api/orders
-parent_span_id = None  # First service in chain
 
 # Service B (PULSE) - receives call from GAPI
-span_id = sb2c3d4e5  # NEW span_id generated
 span_source = GAPI:POST/api/orders->PULSE:POST/internal/orders
-parent_span_id = sa1b2c3d4  # From X-Span-Id header sent by GAPI
 ```
 
 **Breakdown:**

@@ -46,7 +46,6 @@ def upgrade() -> None:
             split_completed_at BIGINT,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            span_id VARCHAR(16) NOT NULL,
             trace_source VARCHAR(50) NOT NULL,
             created_at BIGINT NOT NULL DEFAULT unix_now_micros(),
             updated_at BIGINT NOT NULL DEFAULT unix_now_micros()
@@ -80,7 +79,6 @@ def upgrade() -> None:
             split_completed_at BIGINT,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            span_id VARCHAR(16) NOT NULL,
             trace_source VARCHAR(50) NOT NULL,
             created_at BIGINT NOT NULL,
             updated_at BIGINT NOT NULL
@@ -100,13 +98,13 @@ def upgrade() -> None:
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
                     order_queue_skip_reason, split_completed_at,
-                    trace_id, request_id, span_id, trace_source,
+                    trace_id, request_id, trace_source,
                     created_at, updated_at
                 ) VALUES (
                     'DELETE', OLD.id, OLD.instrument, OLD.side, OLD.total_quantity, OLD.num_splits,
                     OLD.duration_minutes, OLD.randomize, OLD.order_unique_key, OLD.order_queue_status,
                     OLD.order_queue_skip_reason, OLD.split_completed_at,
-                    OLD.trace_id, OLD.request_id, OLD.span_id, OLD.trace_source,
+                    OLD.trace_id, OLD.request_id, OLD.trace_source,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN OLD;
@@ -115,13 +113,13 @@ def upgrade() -> None:
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
                     order_queue_skip_reason, split_completed_at,
-                    trace_id, request_id, span_id, trace_source,
+                    trace_id, request_id, trace_source,
                     created_at, updated_at
                 ) VALUES (
                     'UPDATE', OLD.id, OLD.instrument, OLD.side, OLD.total_quantity, OLD.num_splits,
                     OLD.duration_minutes, OLD.randomize, OLD.order_unique_key, OLD.order_queue_status,
                     OLD.order_queue_skip_reason, OLD.split_completed_at,
-                    OLD.trace_id, OLD.request_id, OLD.span_id, OLD.trace_source,
+                    OLD.trace_id, OLD.request_id, OLD.trace_source,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN NEW;
@@ -130,13 +128,13 @@ def upgrade() -> None:
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
                     order_queue_skip_reason, split_completed_at,
-                    trace_id, request_id, span_id, trace_source,
+                    trace_id, request_id, trace_source,
                     created_at, updated_at
                 ) VALUES (
                     'INSERT', NEW.id, NEW.instrument, NEW.side, NEW.total_quantity, NEW.num_splits,
                     NEW.duration_minutes, NEW.randomize, NEW.order_unique_key, NEW.order_queue_status,
                     NEW.order_queue_skip_reason, NEW.split_completed_at,
-                    NEW.trace_id, NEW.request_id, NEW.span_id, NEW.trace_source,
+                    NEW.trace_id, NEW.request_id, NEW.trace_source,
                     NEW.created_at, NEW.updated_at
                 );
                 RETURN NEW;

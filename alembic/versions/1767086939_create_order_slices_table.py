@@ -33,7 +33,6 @@ def upgrade() -> None:
             scheduled_at BIGINT NOT NULL,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            span_id VARCHAR(16) NOT NULL,
             trace_source VARCHAR(50) NOT NULL,
             created_at BIGINT NOT NULL DEFAULT unix_now_micros(),
             updated_at BIGINT NOT NULL DEFAULT unix_now_micros(),
@@ -65,7 +64,6 @@ def upgrade() -> None:
             scheduled_at BIGINT NOT NULL,
             trace_id VARCHAR(64) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            span_id VARCHAR(16) NOT NULL,
             trace_source VARCHAR(50) NOT NULL,
             created_at BIGINT NOT NULL,
             updated_at BIGINT NOT NULL
@@ -85,12 +83,12 @@ def upgrade() -> None:
                 INSERT INTO order_slices_history (
                     operation, id, order_id, instrument, side, quantity,
                     sequence_number, status, scheduled_at,
-                    trace_id, request_id, span_id, trace_source,
+                    trace_id, request_id, trace_source,
                     created_at, updated_at
                 ) VALUES (
                     'DELETE', OLD.id, OLD.order_id, OLD.instrument, OLD.side, OLD.quantity,
                     OLD.sequence_number, OLD.status, OLD.scheduled_at,
-                    OLD.trace_id, OLD.request_id, OLD.span_id, OLD.trace_source,
+                    OLD.trace_id, OLD.request_id, OLD.trace_source,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN OLD;
@@ -98,12 +96,12 @@ def upgrade() -> None:
                 INSERT INTO order_slices_history (
                     operation, id, order_id, instrument, side, quantity,
                     sequence_number, status, scheduled_at,
-                    trace_id, request_id, span_id, trace_source,
+                    trace_id, request_id, trace_source,
                     created_at, updated_at
                 ) VALUES (
                     'UPDATE', OLD.id, OLD.order_id, OLD.instrument, OLD.side, OLD.quantity,
                     OLD.sequence_number, OLD.status, OLD.scheduled_at,
-                    OLD.trace_id, OLD.request_id, OLD.span_id, OLD.trace_source,
+                    OLD.trace_id, OLD.request_id, OLD.trace_source,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN NEW;
@@ -111,12 +109,12 @@ def upgrade() -> None:
                 INSERT INTO order_slices_history (
                     operation, id, order_id, instrument, side, quantity,
                     sequence_number, status, scheduled_at,
-                    trace_id, request_id, span_id, trace_source,
+                    trace_id, request_id, trace_source,
                     created_at, updated_at
                 ) VALUES (
                     'INSERT', NEW.id, NEW.order_id, NEW.instrument, NEW.side, NEW.quantity,
                     NEW.sequence_number, NEW.status, NEW.scheduled_at,
-                    NEW.trace_id, NEW.request_id, NEW.span_id, NEW.trace_source,
+                    NEW.trace_id, NEW.request_id, NEW.trace_source,
                     NEW.created_at, NEW.updated_at
                 );
                 RETURN NEW;

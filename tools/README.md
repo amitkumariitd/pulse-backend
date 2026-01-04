@@ -2,6 +2,12 @@
 
 This directory contains development and testing tools for pulse-backend.
 
+## Database Tools
+
+Database utility scripts are located in [database/](./database/).
+
+See [database/README.md](./database/README.md) for usage instructions.
+
 ## Postman
 
 API testing collections are located in the `postman/` directory at the repository root.
@@ -19,10 +25,8 @@ See [postman/README.md](../postman/README.md) and [doc/guides/postman-setup.md](
 
 This directory can be extended with:
 
-- **scripts/** - Development helper scripts
-  - Database seeders
-  - Test data generators
-  - Local setup automation
+- **Test data generators** - Generate realistic test data
+- **Local setup automation** - Automated development environment setup
 
 - **mock-servers/** - Mock external services
   - Mock broker API

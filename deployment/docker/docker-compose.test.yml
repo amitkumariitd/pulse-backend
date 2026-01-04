@@ -54,7 +54,7 @@ services:
         condition: service_healthy
     networks:
       - pulse-test-network
-    command: python -m pytest -v --cov=gapi --cov=pulse --cov=shared --cov-report=term-missing
+    command: /bin/bash /app/deployment/docker/test-entrypoint.sh
 
 networks:
   pulse-test-network:

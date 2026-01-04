@@ -12,7 +12,7 @@ This implements Pattern 5 from doc/guides/concurrency.md
 import asyncio
 import asyncpg
 import time
-from shared.observability.context import RequestContext, generate_request_id, generate_span_id
+from shared.observability.context import RequestContext, generate_trace_id, generate_request_id, generate_span_id
 from shared.observability.logger import get_logger
 
 logger = get_logger("pulse.workers.timeout_monitor")
@@ -99,7 +99,7 @@ async def run_timeout_monitor(
         try:
             # Create context for this monitor iteration
             ctx = RequestContext(
-                trace_id=f"monitor_{int(time.time())}",
+                trace_id=generate_trace_id(),
                 trace_source="PULSE_BACKGROUND:timeout_monitor",
                 request_id=generate_request_id(),
                 request_source="PULSE_BACKGROUND:timeout_monitor",

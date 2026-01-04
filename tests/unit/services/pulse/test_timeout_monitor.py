@@ -8,8 +8,8 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import time
-from shared.observability.context import RequestContext
-from pulse.workers.timeout_monitor import recover_stuck_orders
+from shared.observability.context import RequestContext, is_valid_trace_id, is_valid_request_id, is_valid_span_id
+from pulse.workers.timeout_monitor import recover_stuck_orders, run_timeout_monitor
 
 
 @pytest.mark.asyncio
@@ -154,4 +154,34 @@ async def test_recover_stuck_orders_database_error():
     assert "Database error" in str(exc_info.value)
     # Connection should still be released
     mock_pool.release.assert_called_once_with(mock_conn)
+
+
+@pytest.mark.asyncio
+async def test_timeout_monitor_creates_valid_context():
+    """Test that monitor creates context with valid trace_id, request_id, and span_id formats."""
+    import asyncio
+
+    captured_ctx = None
+
+    async def capture_and_stop(pool, timeout_minutes, ctx):
+        nonlocal captured_ctx
+        captured_ctx = ctx
+        raise asyncio.CancelledError()  # Stop the loop after first iteration
+
+    mock_pool = AsyncMock()
+
+    with patch('pulse.workers.timeout_monitor.recover_stuck_orders', side_effect=capture_and_stop):
+        try:
+            await run_timeout_monitor(mock_pool, check_interval_seconds=1, timeout_minutes=5)
+        except asyncio.CancelledError:
+            pass
+
+    # Verify context was created with valid formats
+    assert captured_ctx is not None
+    assert is_valid_trace_id(captured_ctx.trace_id), f"Invalid trace_id: {captured_ctx.trace_id}"
+    assert is_valid_request_id(captured_ctx.request_id), f"Invalid request_id: {captured_ctx.request_id}"
+    assert is_valid_span_id(captured_ctx.span_id), f"Invalid span_id: {captured_ctx.span_id}"
+    assert captured_ctx.trace_source == "PULSE_BACKGROUND:timeout_monitor"
+    assert captured_ctx.request_source == "PULSE_BACKGROUND:timeout_monitor"
+    assert captured_ctx.span_source == "PULSE_BACKGROUND:timeout_monitor"
 

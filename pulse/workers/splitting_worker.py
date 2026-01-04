@@ -18,7 +18,7 @@ from typing import Optional
 from pulse.splitting import calculate_split_schedule, datetime_to_micros, micros_to_datetime
 from pulse.repositories.order_repository import OrderRepository
 from pulse.repositories.order_slice_repository import OrderSliceRepository
-from shared.observability.context import RequestContext, generate_request_id, generate_span_id
+from shared.observability.context import RequestContext, generate_trace_id, generate_request_id, generate_span_id
 from shared.observability.logger import get_logger
 
 logger = get_logger("pulse.workers.splitting")
@@ -152,7 +152,7 @@ async def run_splitting_worker(
         try:
             # Create context for this worker iteration
             ctx = RequestContext(
-                trace_id=f"worker_{int(time.time())}",
+                trace_id=generate_trace_id(),
                 trace_source="PULSE_BACKGROUND:splitting_worker",
                 request_id=generate_request_id(),
                 request_source="PULSE_BACKGROUND:splitting_worker",

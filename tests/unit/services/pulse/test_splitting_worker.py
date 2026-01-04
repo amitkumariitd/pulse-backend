@@ -9,9 +9,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from pulse.workers.splitting_worker import (
     generate_order_slice_id,
-    process_single_order
+    process_single_order,
+    run_splitting_worker
 )
-from shared.observability.context import RequestContext
+from shared.observability.context import RequestContext, is_valid_trace_id, is_valid_request_id, is_valid_span_id
 
 
 @pytest.fixture
@@ -155,7 +156,43 @@ async def test_process_single_order_failure(mock_ctx, sample_order):
         if call[0][1] == 'FAILED':
             failed_call = call
             break
-    
+
     assert failed_call is not None
     assert 'Database error' in failed_call[1]['skip_reason']
+
+
+@pytest.mark.asyncio
+async def test_splitting_worker_creates_valid_context():
+    """Test that worker creates context with valid trace_id, request_id, and span_id formats."""
+    import asyncio
+
+    captured_ctx = None
+
+    # Mock order repository to capture context and stop the loop
+    mock_order_repo = MagicMock()
+
+    async def capture_and_stop(batch_size, ctx):
+        nonlocal captured_ctx
+        captured_ctx = ctx
+        raise asyncio.CancelledError()  # Stop the loop after first iteration
+
+    mock_order_repo.get_pending_orders = AsyncMock(side_effect=capture_and_stop)
+
+    mock_pool = MagicMock()
+
+    with patch('pulse.workers.splitting_worker.OrderRepository', return_value=mock_order_repo):
+        with patch('pulse.workers.splitting_worker.OrderSliceRepository'):
+            try:
+                await run_splitting_worker(mock_pool, poll_interval_seconds=1, batch_size=10)
+            except asyncio.CancelledError:
+                pass
+
+    # Verify context was created with valid formats
+    assert captured_ctx is not None
+    assert is_valid_trace_id(captured_ctx.trace_id), f"Invalid trace_id: {captured_ctx.trace_id}"
+    assert is_valid_request_id(captured_ctx.request_id), f"Invalid request_id: {captured_ctx.request_id}"
+    assert is_valid_span_id(captured_ctx.span_id), f"Invalid span_id: {captured_ctx.span_id}"
+    assert captured_ctx.trace_source == "PULSE_BACKGROUND:splitting_worker"
+    assert captured_ctx.request_source == "PULSE_BACKGROUND:splitting_worker"
+    assert captured_ctx.span_source == "PULSE_BACKGROUND:splitting_worker"
 

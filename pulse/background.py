@@ -2,6 +2,7 @@
 
 This module runs background workers for:
 - Order splitting (PENDING -> IN_PROGRESS -> COMPLETED/FAILED)
+- Timeout monitoring (recover stuck IN_PROGRESS orders)
 
 Run with:
     python -m pulse.background
@@ -20,6 +21,7 @@ from config.settings import get_settings
 from shared.database.pool import create_pool, close_pool
 from shared.observability.logger import get_logger
 from pulse.workers.splitting_worker import run_splitting_worker
+from pulse.workers.timeout_monitor import run_timeout_monitor
 
 logger = get_logger("pulse.background")
 
@@ -55,25 +57,41 @@ async def main():
         })
         
         # Start splitting worker
-        worker_task = asyncio.create_task(
+        splitting_task = asyncio.create_task(
             run_splitting_worker(
                 pool=db_pool,
                 poll_interval_seconds=5,
                 batch_size=10
             )
         )
-        
+
+        # Start timeout monitor
+        monitor_task = asyncio.create_task(
+            run_timeout_monitor(
+                pool=db_pool,
+                check_interval_seconds=60,
+                timeout_minutes=5
+            )
+        )
+
         # Wait for shutdown signal
         await shutdown_event.wait()
-        
+
         logger.info("Shutting down workers...")
-        
-        # Cancel worker task
-        worker_task.cancel()
+
+        # Cancel worker tasks
+        splitting_task.cancel()
+        monitor_task.cancel()
+
         try:
-            await worker_task
+            await splitting_task
         except asyncio.CancelledError:
-            logger.info("Worker task cancelled")
+            logger.info("Splitting worker task cancelled")
+
+        try:
+            await monitor_task
+        except asyncio.CancelledError:
+            logger.info("Timeout monitor task cancelled")
         
     except Exception as e:
         logger.error("Fatal error in background worker", data={"error": str(e)})

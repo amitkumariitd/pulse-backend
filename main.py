@@ -1,4 +1,5 @@
 import asyncio
+import logging.config
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from gapi.main import app as gapi_app
@@ -7,6 +8,10 @@ from pulse.workers.splitting_worker import run_splitting_worker
 from pulse.workers.timeout_monitor import run_timeout_monitor
 from shared.observability.logger import get_logger
 from shared.observability.access_log_middleware import AccessLogMiddleware
+from config.logging_config import LOGGING_CONFIG
+
+# Configure logging at module import time (before Uvicorn starts)
+logging.config.dictConfig(LOGGING_CONFIG)
 
 logger = get_logger("main")
 
@@ -93,11 +98,13 @@ def health():
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "main:app",
         host="127.0.0.1",
         port=8000,
         reload=True,
-        access_log=False  # Disable uvicorn's default access logs (we use our own structured JSON logs)
+        access_log=False,  # Disable uvicorn's default access logs (we use our own structured JSON logs)
+        log_config=LOGGING_CONFIG  # Use custom JSON logging configuration
     )
 

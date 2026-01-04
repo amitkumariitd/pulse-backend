@@ -1,28 +1,32 @@
-# Postman Collection for Pulse Backend
+# Postman Collections for Pulse Backend
 
-This directory contains Postman collections and environments for testing the Pulse Backend API.
+This directory contains Postman collections and environments for testing the Pulse Backend APIs.
 
 ## Files
 
-- **`pulse-backend.postman_collection.json`** - Main API collection with all endpoints
+- **`gapi.postman_collection.json`** - GAPI (External API) collection
+- **`pulse-api.postman_collection.json`** - Pulse (Internal API) collection
 - **`local.postman_environment.json`** - Local development environment variables
 
 ## Quick Start
 
-### 1. Import Collection into Postman
+### 1. Import Collections into Postman
 
-**Option A: Import from File**
+**Option A: Import All Files (Recommended)**
 1. Open Postman
 2. Click **Import** button (top left)
 3. Click **Upload Files**
-4. Select `pulse-backend.postman_collection.json`
+4. Select all three files:
+   - `gapi.postman_collection.json`
+   - `pulse-api.postman_collection.json`
+   - `local.postman_environment.json`
 5. Click **Import**
 
 **Option B: Import from Folder**
 1. Open Postman
 2. Click **Import** → **Folder**
 3. Select the `postman/` directory
-4. Postman will import both collection and environment
+4. Postman will import all collections and environment
 
 ### 2. Import Environment
 
@@ -41,20 +45,51 @@ uvicorn main:app --reload --port 8000
 
 ### 4. Test the APIs
 
-**Health Check:**
-- Request: `GET /health`
-- No auth required
-- Should return: `{"status":"ok","background_workers":"running"}`
+#### GAPI Collection (External API)
 
-**Create Order (GAPI):**
+**Create Order:**
+- Collection: **GAPI - External API**
 - Request: `POST /gapi/api/orders`
 - Requires: `Authorization: Bearer test-token-123`
-- Body: See collection for example
-- Returns: `order_id` - **Copy this for next requests**
+- Body format:
+  ```json
+  {
+    "order_unique_key": "test-order-{{$timestamp}}",
+    "instrument": "NSE:RELIANCE",
+    "side": "BUY",
+    "total_quantity": 100,
+    "split_config": {
+      "num_splits": 5,
+      "duration_minutes": 60,
+      "randomize": true
+    }
+  }
+  ```
+- Returns: `order_id` - **Auto-saved to environment variable**
+
+#### Pulse API Collection (Internal API)
+
+**Create Order (Internal):**
+- Collection: **Pulse API - Internal**
+- Request: `POST /pulse/internal/orders`
+- No auth required
+- Body format:
+  ```json
+  {
+    "order_unique_key": "test-order-{{$timestamp}}",
+    "instrument": "NSE:TCS",
+    "side": "BUY",
+    "total_quantity": 200,
+    "num_splits": 10,
+    "duration_minutes": 120,
+    "randomize": true
+  }
+  ```
+- Returns: `order_id` - **Auto-saved to environment variable**
 
 **Get Order:**
 - Request: `GET /pulse/internal/orders/{{order_id}}`
-- Set `order_id` variable to the ID from previous step
+- Uses `order_id` variable (auto-saved from create order)
 - Returns: Full order details
 
 **Get Order Slices:**
@@ -92,28 +127,66 @@ if (pm.response.code === 200) {
 }
 ```
 
-## API Endpoints
+## Collections Overview
 
-### Health
-- `GET /health` - Check application health
+### GAPI Collection (External API)
+**File:** `gapi.postman_collection.json`
 
-### GAPI (External API)
-- `POST /gapi/api/orders` - Create order (requires auth)
+Endpoints for external clients (requires authentication):
+- `POST /gapi/api/orders` - Create order
+  - Requires: `Authorization: Bearer token`
+  - Body: `order_unique_key`, `instrument`, `side`, `total_quantity`, `split_config`
+  - Returns: `order_id`, `order_queue_status`
 
-### Pulse API (Internal)
-- `POST /pulse/internal/orders` - Create order (internal, no auth)
+**Use this collection when:**
+- Testing as an external client
+- Testing authentication
+- Simulating real user requests
+
+### Pulse API Collection (Internal API)
+**File:** `pulse-api.postman_collection.json`
+
+Endpoints for internal service-to-service communication (no auth):
+- `POST /pulse/internal/orders` - Create order
+  - No auth required
+  - Body: `order_unique_key`, `instrument`, `side`, `total_quantity`, `num_splits`, `duration_minutes`, `randomize`
+  - Returns: `order_id`, `order_queue_status`, `created_at`
 - `GET /pulse/internal/orders/{order_id}` - Get order details
 - `GET /pulse/internal/orders/{order_id}/slices` - Get order slices
 
-## Example Workflow
+**Use this collection when:**
+- Testing internal APIs directly
+- Debugging order processing
+- Bypassing GAPI layer
+
+## Example Workflows
+
+### Workflow 1: Test via GAPI (External Client)
 
 1. **Start app**: `uvicorn main:app --reload --port 8000`
-2. **Health check**: Run "Health Check" request → Should return OK
-3. **Create order**: Run "Create Order" request → Copy `order_id` from response
-4. **Set variable**: Paste `order_id` into environment variable
-5. **Wait 5-10 seconds**: Background worker will split the order
-6. **Get order**: Run "Get Order by ID" → Should show `order_queue_status: "COMPLETED"`
-7. **Get slices**: Run "Get Order Slices" → Should show 5 slices (or whatever `num_splits` you used)
+2. **Select collection**: Open **"GAPI - External API"** collection
+3. **Create order**: Run "Create Order" request
+   - `order_id` is auto-saved to environment
+   - Response status: `202 Accepted`
+4. **Wait 5-10 seconds**: Background worker will split the order
+5. **Switch collection**: Open **"Pulse API - Internal"** collection
+6. **Get order**: Run "Get Order by ID"
+   - Should show `order_queue_status: "COMPLETED"`
+7. **Get slices**: Run "Get Order Slices"
+   - Should show 5 slices (or whatever `num_splits` you used)
+
+### Workflow 2: Test via Pulse API (Internal)
+
+1. **Start app**: `uvicorn main:app --reload --port 8000`
+2. **Select collection**: Open **"Pulse API - Internal"** collection
+3. **Create order**: Run "Create Order (Internal)" request
+   - `order_id` is auto-saved to environment
+   - Response status: `201 Created`
+4. **Wait 5-10 seconds**: Background worker will split the order
+5. **Get order**: Run "Get Order by ID"
+   - Should show `order_queue_status: "COMPLETED"`
+6. **Get slices**: Run "Get Order Slices"
+   - Should show slices created for the order
 
 ## Troubleshooting
 

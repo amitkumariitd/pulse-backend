@@ -9,7 +9,7 @@ import httpx
 from fastapi import APIRouter, Request, HTTPException, status, Header
 from typing import Optional
 from pydantic import ValidationError
-from shared.models.orders import CreateOrderRequest, InternalCreateOrderRequest, OrderResponse
+from gapi.models.orders import CreateOrderRequest, InternalCreateOrderRequest, OrderResponse
 from shared.observability.logger import get_logger
 from shared.observability.context import RequestContext
 from gapi.clients.pulse_client import PulseClient

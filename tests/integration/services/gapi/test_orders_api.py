@@ -9,7 +9,7 @@ import pytest
 from unittest.mock import AsyncMock, patch
 from fastapi.testclient import TestClient
 from gapi.main import app
-from shared.models.orders import OrderResponse
+from gapi.models.orders import OrderResponse
 
 client = TestClient(app)
 

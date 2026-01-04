@@ -9,7 +9,7 @@ import time
 import secrets
 import asyncpg
 from fastapi import APIRouter, Request, Depends, HTTPException, status
-from shared.models.orders import InternalCreateOrderRequest, OrderResponse, ErrorResponse
+from pulse.models.orders import InternalCreateOrderRequest, OrderResponse, ErrorResponse
 from shared.observability.logger import get_logger
 from shared.observability.context import RequestContext
 from pulse.repositories.order_repository import OrderRepository

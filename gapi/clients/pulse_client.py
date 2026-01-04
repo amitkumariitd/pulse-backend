@@ -9,7 +9,7 @@ import httpx
 from shared.http.client import ContextPropagatingClient
 from shared.observability.context import RequestContext
 from shared.observability.logger import get_logger
-from shared.models.orders import InternalCreateOrderRequest, OrderResponse
+from gapi.models.orders import InternalCreateOrderRequest, OrderResponse
 from config.settings import get_settings
 
 logger = get_logger("gapi.clients.pulse")

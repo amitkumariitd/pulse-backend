@@ -1,4 +1,4 @@
-"""Pydantic models for order requests and responses."""
+"""GAPI-specific Pydantic models for order requests and responses."""
 
 from pydantic import BaseModel, Field, field_validator
 from typing import Literal
@@ -49,7 +49,7 @@ class CreateOrderRequest(BaseModel):
 
 
 class InternalCreateOrderRequest(BaseModel):
-    """Request model for Pulse internal endpoint."""
+    """Request model for Pulse internal endpoint (used by GAPI client)."""
     order_unique_key: str = Field(..., min_length=1)
     instrument: str = Field(..., min_length=1)
     side: Literal["BUY", "SELL"]

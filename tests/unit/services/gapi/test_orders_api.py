@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 from fastapi import Request, HTTPException
 from shared.observability.context import RequestContext
 from gapi.api.orders import create_order, validate_auth_token
-from shared.models.orders import CreateOrderRequest, SplitConfig, OrderResponse
+from gapi.models.orders import CreateOrderRequest, SplitConfig, OrderResponse
 
 
 def test_validate_auth_token_missing():

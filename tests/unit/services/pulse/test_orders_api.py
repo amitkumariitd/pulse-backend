@@ -11,7 +11,7 @@ import asyncpg
 from fastapi import Request
 from shared.observability.context import RequestContext
 from pulse.api.orders import create_order, generate_order_id
-from shared.models.orders import InternalCreateOrderRequest
+from pulse.models.orders import InternalCreateOrderRequest
 
 
 def test_generate_order_id_format():

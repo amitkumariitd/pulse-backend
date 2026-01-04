@@ -514,7 +514,7 @@ def validate_split_schedule(parent_order, child_orders):
 
 ## Multi-Pod Concurrency Safety
 
-**See**: `doc/standards/concurrency.md` for complete concurrency safety patterns.
+**See**: `doc/guides/concurrency.md` for complete concurrency safety patterns.
 
 ### Problem Statement
 
@@ -530,7 +530,7 @@ In production, multiple pods (instances) run simultaneously:
 
 ### Safety Mechanisms Applied
 
-This feature implements the following patterns from `doc/standards/concurrency.md`:
+This feature implements the following patterns from `doc/guides/concurrency.md`:
 
 #### 1. Idempotent API Operations (Pattern 1)
 
@@ -538,7 +538,7 @@ This feature implements the following patterns from `doc/standards/concurrency.m
 
 **Implementation**: Use unique constraint on `order_unique_key` to prevent duplicate parent orders.
 
-See `doc/standards/concurrency.md` - Pattern 1 for details.
+See `doc/guides/concurrency.md` - Pattern 1 for details.
 
 ---
 
@@ -557,7 +557,7 @@ LIMIT 1
 FOR UPDATE SKIP LOCKED
 ```
 
-See `doc/standards/concurrency.md` - Pattern 2 for details.
+See `doc/guides/concurrency.md` - Pattern 2 for details.
 
 ---
 
@@ -570,7 +570,7 @@ See `doc/standards/concurrency.md` - Pattern 2 for details.
 **Monitor**:
 - Parent orders stuck in `SPLITTING` > 5 minutes → mark as `FAILED`
 
-See `doc/standards/concurrency.md` - Pattern 5 for details.
+See `doc/guides/concurrency.md` - Pattern 5 for details.
 
 **Note**: Execution-related concurrency patterns (optimistic locking, aggregate updates) will be covered in the execution feature.
 

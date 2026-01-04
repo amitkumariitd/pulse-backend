@@ -159,6 +159,6 @@ The `data` field is optional and contains structured context:
 
 ## Relationship to Other Standards
 
-- Tracing identifiers defined in `doc/standards/tracing.md`
+- Tracing identifiers defined in `doc/guides/tracing.md`
 - Security rules enforced in `.augment/rules/rules.md`
 

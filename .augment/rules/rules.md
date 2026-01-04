@@ -104,7 +104,7 @@ See `.augment/rules/postgres.md` for detailed enforcement rules.
 
 ## Concurrency rules
 
-**All concurrent code MUST follow `doc/standards/concurrency.md`.**
+**All concurrent code MUST follow `doc/guides/concurrency.md`.**
 
 Key requirements:
 - API operations must be idempotent (unique idempotency_key)

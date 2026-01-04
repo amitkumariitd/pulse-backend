@@ -6,7 +6,7 @@ This monitor:
 3. Marks them as FAILED with timeout error message
 4. Provides crash recovery for pod failures
 
-This implements Pattern 5 from doc/standards/concurrency.md
+This implements Pattern 5 from doc/guides/concurrency.md
 """
 
 import asyncio

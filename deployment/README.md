@@ -122,7 +122,7 @@ This directory is structured to accommodate:
 ## See Also
 
 - [Deployment Guide](../doc/deployment.md) - Detailed deployment documentation
-- [Configuration Standard](../doc/standards/config.md) - Environment configuration
+- [Configuration Standard](../doc/guides/config.md) - Environment configuration
 - [Testing Guide](../TESTING.md) - Testing procedures
 - [Main README](../README.md) - Project overview
 

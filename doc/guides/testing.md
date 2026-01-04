@@ -391,6 +391,6 @@ Tests run automatically on:
 ## Relationship to Other Standards
 
 - Error codes defined in `doc/contract/common.md`
-- Logging format in `doc/standards/logging.md`
-- Tracing headers in `doc/standards/tracing.md`
+- Logging format in `doc/guides/logging.md`
+- Tracing headers in `doc/guides/tracing.md`
 

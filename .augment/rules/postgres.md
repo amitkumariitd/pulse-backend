@@ -2,7 +2,7 @@
 
 **Every database interaction MUST follow these rules. No exceptions.**
 
-See `doc/standards/postgres.md` for detailed guide, examples, and best practices.
+See `doc/guides/postgres.md` for detailed guide, examples, and best practices.
 
 ---
 
@@ -163,7 +163,7 @@ If you write database code without following these rules:
 
 ## When in doubt
 
-- Re-read `doc/standards/postgres.md` for detailed examples
+- Re-read `doc/guides/postgres.md` for detailed examples
 - Follow the BaseRepository pattern
 - Always include RequestContext
 - Ask for clarification instead of skipping requirements

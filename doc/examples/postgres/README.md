@@ -201,6 +201,6 @@ ORDER BY changed_at DESC;
 ## See Also
 
 - **Enforcement Rules**: `.augment/rules/postgres.md`
-- **Standards**: `doc/standards/postgres.md`
+- **Standards**: `doc/guides/postgres.md`
 - **Testing**: `.augment/rules/testing.md`
 

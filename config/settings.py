@@ -35,12 +35,12 @@ class Settings(BaseSettings):
     pulse_api_base_url: str | None = None
 
     model_config = SettingsConfigDict(
-        # Always try to load .env files if they exist
-        # .env.common: shared defaults (committed)
-        # .env.local: local overrides (gitignored)
-        # Stage/prod won't have these files, so they'll use real env vars from ECS/SSM
-        env_file=(".env.common", ".env.local"),
-        env_file_encoding="utf-8",
+        # Do NOT automatically load .env files
+        # Use environment variables only (set explicitly or via dotenv CLI)
+        # For local development: use scripts/run_tests_local.sh or export env vars manually
+        # For stage/prod: use real env vars from ECS/SSM
+        env_file=None,
+        extra='ignore',  # Ignore extra fields not defined in the model
     )
 
 

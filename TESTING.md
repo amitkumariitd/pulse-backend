@@ -5,15 +5,15 @@
 ## Quick Start
 
 ```bash
-# Run all tests
-python -m pytest -v
+# Run all tests (loads .env.local explicitly)
+./scripts/run_tests_local.sh -v
 
 # With coverage
-python -m pytest --cov=gapi --cov=pulse --cov=shared --cov-report=html
+./scripts/run_tests_local.sh --cov=gapi --cov=pulse --cov=shared --cov-report=html
 open htmlcov/index.html
 ```
 
-**Status**: 116/120 tests passing (4 pre-existing failures in timeout_monitor tests)
+**Status**: 111/111 tests passing ✅
 
 ---
 
@@ -21,25 +21,47 @@ open htmlcov/index.html
 
 ```bash
 # By test type
-python -m pytest tests/unit/ -v          # All unit tests (80 tests)
-python -m pytest tests/integration/ -v   # All integration tests (40 tests)
+./scripts/run_tests_local.sh tests/unit/ -v          # All unit tests
+./scripts/run_tests_local.sh tests/integration/ -v   # All integration tests
 
 # By component
-python -m pytest tests/unit/services/gapi/ -v
-python -m pytest tests/unit/services/pulse/ -v
-python -m pytest tests/integration/services/gapi/ -v
-python -m pytest tests/integration/services/pulse/ -v
+./scripts/run_tests_local.sh tests/unit/services/gapi/ -v
+./scripts/run_tests_local.sh tests/unit/services/pulse/ -v
+./scripts/run_tests_local.sh tests/integration/services/gapi/ -v
+./scripts/run_tests_local.sh tests/integration/services/pulse/ -v
 
 # Shared modules
-python -m pytest tests/unit/shared/ -v
-python -m pytest tests/integration/shared/ -v
+./scripts/run_tests_local.sh tests/unit/shared/ -v
+./scripts/run_tests_local.sh tests/integration/shared/ -v
 
 # Specific file
-python -m pytest tests/unit/services/gapi/test_health.py -v
+./scripts/run_tests_local.sh tests/unit/services/gapi/test_health.py -v
 
 # Specific function
-python -m pytest tests/unit/services/gapi/test_health.py::test_health_returns_ok -v
+./scripts/run_tests_local.sh tests/unit/services/gapi/test_health.py::test_health_returns_ok -v
 ```
+
+## Configuration for Tests
+
+Tests require **explicit configuration loading**:
+
+**Local development:**
+```bash
+# Use the helper script (recommended)
+./scripts/run_tests_local.sh [pytest args]
+
+# This script loads .env.local before running pytest
+```
+
+**Why explicit loading?**
+- Settings class does NOT automatically load `.env` files
+- Ensures explicit configuration in all environments
+- No accidental fallback to wrong config
+- Production-like behavior
+
+**Other environments:**
+- **CI/CD**: Environment variables set in `.github/workflows/ci-cd.yml`
+- **Docker**: Environment variables set in `docker-compose.test.yml`
 
 ---
 
@@ -131,15 +153,23 @@ def test_example():
 
 ## Troubleshooting
 
-**`pytest` command not found?** Use `python -m pytest` instead:
+**Tests failing with "Field required" validation errors?**
 ```bash
-python -m pytest -v
+# Make sure you're using the test script
+./scripts/run_tests_local.sh -v
+
+# Or ensure .env.local has all required fields
+```
+
+**`pytest` command not found?** The script uses `python -m pytest`:
+```bash
+./scripts/run_tests_local.sh -v
 ```
 
 **Import errors?** Make sure you're in the repo root:
 ```bash
 cd /Users/amitkumar/learn/pulse-backend
-python -m pytest -v
+./scripts/run_tests_local.sh -v
 ```
 
 **Missing dependencies?**

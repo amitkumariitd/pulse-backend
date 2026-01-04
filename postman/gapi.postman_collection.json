@@ -1,0 +1,158 @@
+{
+  "info": {
+    "name": "GAPI - External API",
+    "description": "External-facing Gateway API for order management",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "item": [
+    {
+      "name": "Create Order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Auto-save order_id from response",
+              "if (pm.response.code === 202) {",
+              "    const response = pm.response.json();",
+              "    pm.environment.set(\"order_id\", response.order_id);",
+              "    console.log(\"Saved order_id:\", response.order_id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_unique_key\": \"test-order-{{$timestamp}}\",\n  \"instrument\": \"NSE:RELIANCE\",\n  \"side\": \"BUY\",\n  \"total_quantity\": 100,\n  \"split_config\": {\n    \"num_splits\": 5,\n    \"duration_minutes\": 60,\n    \"randomize\": true\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/gapi/api/orders",
+          "host": ["{{base_url}}"],
+          "path": ["gapi", "api", "orders"]
+        },
+        "description": "Create a new order via GAPI (external gateway). Requires authentication."
+      },
+      "response": []
+    },
+    {
+      "name": "Create Order - SELL",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Auto-save order_id from response",
+              "if (pm.response.code === 202) {",
+              "    const response = pm.response.json();",
+              "    pm.environment.set(\"order_id\", response.order_id);",
+              "    console.log(\"Saved order_id:\", response.order_id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_unique_key\": \"test-order-{{$timestamp}}\",\n  \"instrument\": \"NSE:INFY\",\n  \"side\": \"SELL\",\n  \"total_quantity\": 50,\n  \"split_config\": {\n    \"num_splits\": 3,\n    \"duration_minutes\": 30,\n    \"randomize\": false\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/gapi/api/orders",
+          "host": ["{{base_url}}"],
+          "path": ["gapi", "api", "orders"]
+        },
+        "description": "Create a SELL order with fixed intervals (no randomization)"
+      },
+      "response": []
+    },
+    {
+      "name": "Create Order - Large Order",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "// Auto-save order_id from response",
+              "if (pm.response.code === 202) {",
+              "    const response = pm.response.json();",
+              "    pm.environment.set(\"order_id\", response.order_id);",
+              "    console.log(\"Saved order_id:\", response.order_id);",
+              "}"
+            ],
+            "type": "text/javascript"
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{auth_token}}",
+            "type": "text"
+          },
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"order_unique_key\": \"test-order-{{$timestamp}}\",\n  \"instrument\": \"NSE:TCS\",\n  \"side\": \"BUY\",\n  \"total_quantity\": 1000,\n  \"split_config\": {\n    \"num_splits\": 20,\n    \"duration_minutes\": 120,\n    \"randomize\": true\n  }\n}"
+        },
+        "url": {
+          "raw": "{{base_url}}/gapi/api/orders",
+          "host": ["{{base_url}}"],
+          "path": ["gapi", "api", "orders"]
+        },
+        "description": "Create a large order split into 20 slices over 2 hours"
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "test-token-123",
+      "type": "string"
+    }
+  ]
+}
+

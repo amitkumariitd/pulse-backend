@@ -5,6 +5,16 @@ They are mandatory and must be followed for every task.
 
 ---
 
+## Git and version control rules (mandatory)
+
+- **Always ask for confirmation before committing code.**
+- Do NOT commit without explicit user approval.
+- Show what will be committed and wait for user confirmation.
+- Do NOT push to remote without explicit permission.
+- Do NOT perform rebase without explicit permission.
+
+---
+
 ## Service boundary rules (critical)
 
 **GAPI ↔ Pulse: Strict HTTP-only boundary**

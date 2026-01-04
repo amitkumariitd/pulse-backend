@@ -16,11 +16,12 @@ from pulse.workers.timeout_monitor import recover_stuck_orders
 async def test_recover_stuck_orders_success():
     """Test recovering stuck orders."""
     # Arrange
-    mock_pool = MagicMock()
+    mock_pool = AsyncMock()
     mock_conn = AsyncMock()
-    mock_pool.acquire.return_value = mock_conn
-    mock_conn.execute.return_value = "UPDATE 3"
-    
+    mock_pool.acquire = AsyncMock(return_value=mock_conn)
+    mock_pool.release = AsyncMock()
+    mock_conn.execute = AsyncMock(return_value="UPDATE 3")
+
     ctx = RequestContext(
         trace_id="t1234567890abcdef1234",
         trace_source="TEST",
@@ -29,30 +30,30 @@ async def test_recover_stuck_orders_success():
         span_id="s12345678",
         span_source="TEST"
     )
-    
+
     # Act
     count = await recover_stuck_orders(mock_pool, timeout_minutes=5, ctx=ctx)
-    
+
     # Assert
     assert count == 3
     mock_pool.acquire.assert_called_once()
     mock_conn.execute.assert_called_once()
     mock_pool.release.assert_called_once_with(mock_conn)
-    
+
     # Verify SQL parameters
     call_args = mock_conn.execute.call_args
     sql = call_args[0][0]
     params = call_args[0][1:]
-    
+
     assert "UPDATE orders" in sql
     assert "order_queue_status = 'FAILED'" in sql
     assert "WHERE order_queue_status = 'IN_PROGRESS'" in sql
     assert "AND updated_at <" in sql
-    
+
     # Check error message
     assert "Processing timeout" in params[0]
     assert "5 minutes" in params[0]
-    
+
     # Check context propagation
     assert params[2] == ctx.request_id
     assert params[3] == ctx.span_id
@@ -62,11 +63,12 @@ async def test_recover_stuck_orders_success():
 async def test_recover_stuck_orders_no_stuck_orders():
     """Test when there are no stuck orders."""
     # Arrange
-    mock_pool = MagicMock()
+    mock_pool = AsyncMock()
     mock_conn = AsyncMock()
-    mock_pool.acquire.return_value = mock_conn
-    mock_conn.execute.return_value = "UPDATE 0"
-    
+    mock_pool.acquire = AsyncMock(return_value=mock_conn)
+    mock_pool.release = AsyncMock()
+    mock_conn.execute = AsyncMock(return_value="UPDATE 0")
+
     ctx = RequestContext(
         trace_id="t1234567890abcdef1234",
         trace_source="TEST",
@@ -75,10 +77,10 @@ async def test_recover_stuck_orders_no_stuck_orders():
         span_id="s12345678",
         span_source="TEST"
     )
-    
+
     # Act
     count = await recover_stuck_orders(mock_pool, timeout_minutes=5, ctx=ctx)
-    
+
     # Assert
     assert count == 0
     mock_pool.release.assert_called_once_with(mock_conn)
@@ -88,11 +90,12 @@ async def test_recover_stuck_orders_no_stuck_orders():
 async def test_recover_stuck_orders_custom_timeout():
     """Test with custom timeout value."""
     # Arrange
-    mock_pool = MagicMock()
+    mock_pool = AsyncMock()
     mock_conn = AsyncMock()
-    mock_pool.acquire.return_value = mock_conn
-    mock_conn.execute.return_value = "UPDATE 1"
-    
+    mock_pool.acquire = AsyncMock(return_value=mock_conn)
+    mock_pool.release = AsyncMock()
+    mock_conn.execute = AsyncMock(return_value="UPDATE 1")
+
     ctx = RequestContext(
         trace_id="t1234567890abcdef1234",
         trace_source="TEST",
@@ -101,26 +104,26 @@ async def test_recover_stuck_orders_custom_timeout():
         span_id="s12345678",
         span_source="TEST"
     )
-    
+
     # Act
     count = await recover_stuck_orders(mock_pool, timeout_minutes=10, ctx=ctx)
-    
+
     # Assert
     assert count == 1
-    
+
     # Verify timeout calculation
     call_args = mock_conn.execute.call_args
     params = call_args[0][1:]
-    
+
     # Error message should mention 10 minutes
     assert "10 minutes" in params[0]
-    
+
     # Threshold should be calculated correctly
     # params[4] is the threshold_micros
     current_time_micros = int(time.time() * 1_000_000)
     timeout_micros = 10 * 60 * 1_000_000
     expected_threshold = current_time_micros - timeout_micros
-    
+
     # Allow 1 second tolerance for test execution time
     assert abs(params[4] - expected_threshold) < 1_000_000
 
@@ -129,11 +132,12 @@ async def test_recover_stuck_orders_custom_timeout():
 async def test_recover_stuck_orders_database_error():
     """Test handling of database errors."""
     # Arrange
-    mock_pool = MagicMock()
+    mock_pool = AsyncMock()
     mock_conn = AsyncMock()
-    mock_pool.acquire.return_value = mock_conn
-    mock_conn.execute.side_effect = Exception("Database error")
-    
+    mock_pool.acquire = AsyncMock(return_value=mock_conn)
+    mock_pool.release = AsyncMock()
+    mock_conn.execute = AsyncMock(side_effect=Exception("Database error"))
+
     ctx = RequestContext(
         trace_id="t1234567890abcdef1234",
         trace_source="TEST",
@@ -142,11 +146,11 @@ async def test_recover_stuck_orders_database_error():
         span_id="s12345678",
         span_source="TEST"
     )
-    
+
     # Act & Assert
     with pytest.raises(Exception) as exc_info:
         await recover_stuck_orders(mock_pool, timeout_minutes=5, ctx=ctx)
-    
+
     assert "Database error" in str(exc_info.value)
     # Connection should still be released
     mock_pool.release.assert_called_once_with(mock_conn)

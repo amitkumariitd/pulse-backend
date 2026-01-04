@@ -37,13 +37,13 @@ class StructuredLogger:
 	"""Structured JSON logger that accepts RequestContext explicitly.
 
 	Usage:
-	    logger = get_logger("my_service")
+	    logger = get_logger("pulse.workers.splitting")
 	    logger.info("Order created", ctx, data={"instrument": "NSE:RELIANCE"})
 	"""
 
-	def __init__(self, service_name: str):
-		self.service_name = service_name
-		self.logger = logging.getLogger(service_name)
+	def __init__(self, logger_name: str):
+		self.logger_name = logger_name
+		self.logger = logging.getLogger(logger_name)
 		self.logger.setLevel(logging.DEBUG)
 
 		handler = logging.StreamHandler(sys.stdout)
@@ -79,7 +79,7 @@ class StructuredLogger:
 			.isoformat()
 			.replace("+00:00", "Z"),
 			"level": level,
-			"service": self.service_name,
+			"logger": self.logger_name,
 			"message": message,
 		}
 
@@ -142,7 +142,7 @@ class StructuredLogger:
 		self._log("CRITICAL", message, ctx, **kwargs)
 
 
-def get_logger(service_name: str) -> StructuredLogger:
-    """Get a structured logger for the given service."""
-    return StructuredLogger(service_name)
+def get_logger(logger_name: str) -> StructuredLogger:
+    """Get a structured logger with the given name."""
+    return StructuredLogger(logger_name)
 

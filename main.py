@@ -13,7 +13,7 @@ from config.logging_config import LOGGING_CONFIG
 # Configure logging at module import time (before Uvicorn starts)
 logging.config.dictConfig(LOGGING_CONFIG)
 
-logger = get_logger("main")
+logger = get_logger("pulse")
 
 
 @asynccontextmanager

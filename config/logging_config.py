@@ -14,7 +14,7 @@ class JSONFormatter(logging.Formatter):
         log_entry: Dict[str, Any] = {
             "timestamp": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
             "level": record.levelname,
-            "service": "uvicorn",
+            "logger": "pulse.uvicorn",
             "message": record.getMessage(),
         }
 

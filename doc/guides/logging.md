@@ -14,7 +14,7 @@ All logs MUST be valid JSON with the following structure:
 {
   "timestamp": "2025-12-25T10:30:45.123Z",
   "level": "INFO",
-  "service": "gapi",
+  "logger": "gapi",
   "trace_id": "t-8fa21c9d",
   "trace_source": "GAPI:create_order",
   "request_id": "r-912873",
@@ -37,7 +37,7 @@ Every log entry MUST include:
 |-------|------|-------------|
 | `timestamp` | string | ISO 8601 format with milliseconds (UTC) |
 | `level` | string | Log level: DEBUG, INFO, WARNING, ERROR, CRITICAL |
-| `service` | string | Service name: `gapi` or `order_service` |
+| `logger` | string | Logger name: `gapi`, `pulse`, `pulse.workers.splitting`, etc. |
 | `message` | string | Human-readable log message |
 
 ---
@@ -114,7 +114,7 @@ The `data` field is optional and contains structured context:
 {
   "timestamp": "2025-12-25T10:30:45.123Z",
   "level": "INFO",
-  "service": "gapi",
+  "logger": "gapi",
   "trace_id": "t-8fa21c9d",
   "trace_source": "GAPI:create_order",
   "request_id": "r-912873",
@@ -132,11 +132,11 @@ The `data` field is optional and contains structured context:
 {
   "timestamp": "2025-12-25T10:30:46.789Z",
   "level": "ERROR",
-  "service": "order_service",
+  "logger": "pulse",
   "trace_id": "t-8fa21c9d",
   "trace_source": "GAPI:create_order",
   "request_id": "r-445566",
-  "request_source": "ORDER:create_order",
+  "request_source": "PULSE:create_order",
   "message": "Failed to persist order",
   "data": {
     "error_code": "DATABASE_ERROR",

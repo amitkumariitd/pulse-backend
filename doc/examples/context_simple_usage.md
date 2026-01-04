@@ -153,36 +153,21 @@ async def create_order_internal(
 
 ## Example 3: Logging with Context
 
-### Logger Accepts Context
-
 ```python
 from shared.observability.logger import get_logger
 
-logger = get_logger("order_service")
+logger = get_logger("pulse")
 
 async def process_order(order_data: dict, ctx: RequestContext):
-    # Pass context to logger
+    # Pass context to logger - trace_id, request_id, etc. are automatically included
     logger.info("Starting order processing", ctx)
-    
+
     # ... business logic ...
-    
+
     logger.info("Order processing complete", ctx)
 ```
 
-### Log Output
-
-```json
-{
-  "timestamp": "2025-12-26T10:30:45.123Z",
-  "level": "INFO",
-  "service": "order_service",
-  "message": "Order processing complete",
-  "trace_id": "t-8fa21c9d",
-  "trace_source": "GAPI:/api/orders",
-  "request_id": "r-912873",
-  "request_source": "ORDER_SERVICE:/internal/orders"
-}
-```
+See `doc/guides/logging.md` for log format details.
 
 ---
 

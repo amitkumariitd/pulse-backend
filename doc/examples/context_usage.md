@@ -36,19 +36,7 @@ def list_orders():
     return {"orders": []}
 ```
 
-**Log Output:**
-```json
-{
-  "timestamp": "2025-12-26T10:30:45.123Z",
-  "level": "INFO",
-  "service": "gapi",
-  "message": "Listing orders",
-  "trace_id": "t-8fa21c9d",
-  "request_id": "r-912873",
-  "trace_source": "GAPI:/api/orders",
-  "request_source": "GAPI:/api/orders"
-}
-```
+Context fields (`trace_id`, `request_id`, etc.) are automatically included in logs. See `doc/guides/logging.md` for format details.
 
 ---
 
@@ -81,18 +69,7 @@ def create_order(order_data: dict):
     return {"order_id": order.id}
 ```
 
-**Log Output (after enrichment):**
-```json
-{
-  "timestamp": "2025-12-26T10:30:46.456Z",
-  "level": "INFO",
-  "service": "order_service",
-  "message": "Order persisted",
-  "trace_id": "t-8fa21c9d",
-  "request_id": "r-912873",
-  "order_id": "ord_abc123"
-}
-```
+After enrichment, `order_id` is automatically included in all subsequent logs.
 
 ---
 

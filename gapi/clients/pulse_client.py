@@ -17,30 +17,38 @@ logger = get_logger("gapi.clients.pulse")
 
 class PulseClient:
     """Client for calling Pulse internal API."""
-    
+
     def __init__(self, base_url: str | None = None):
         """Initialize Pulse client.
-        
+
         Args:
             base_url: Base URL for Pulse service. If None, uses settings.
+
+        Raises:
+            ValueError: If base_url is not provided and PULSE_API_BASE_URL is not set
         """
         if base_url is None:
             settings = get_settings()
-            base_url = settings.pulse_api_base_url or "http://localhost:8001"
-        
+            base_url = settings.pulse_api_base_url
+            if not base_url:
+                raise ValueError(
+                    "PULSE_API_BASE_URL environment variable must be set. "
+                    "For monorepo deployment, set it to 'http://localhost:8000/pulse'"
+                )
+
         self.base_url = base_url
         self.client = None
     
     def _get_client(self, ctx: RequestContext) -> ContextPropagatingClient:
         """Get or create HTTP client with context propagation.
-        
+
         Args:
             ctx: Request context to propagate
-            
+
         Returns:
             ContextPropagatingClient instance
         """
-        return ContextPropagatingClient(self.base_url, ctx)
+        return ContextPropagatingClient(self.base_url)
     
     async def create_order(
         self,

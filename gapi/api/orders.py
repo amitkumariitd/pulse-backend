@@ -177,3 +177,19 @@ async def create_order(
             }
         )
 
+    except Exception as e:
+        logger.error("Unexpected error in create_order", ctx, data={
+            "error_type": type(e).__name__,
+            "error": str(e)
+        }, exc_info=True)
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail={
+                "error": {
+                    "code": "INTERNAL_ERROR",
+                    "message": "An unexpected error occurred",
+                    "details": {}
+                }
+            }
+        )
+

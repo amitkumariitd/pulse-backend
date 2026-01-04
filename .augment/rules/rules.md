@@ -94,6 +94,28 @@ See `.augment/rules/postgres.md` for detailed enforcement rules.
 
 ---
 
+## Configuration rules (mandatory)
+
+- **Never use default fallback values for configuration.**
+- If a config value is not set, raise an error with a clear message.
+- Do NOT use patterns like `config.value or "default"`.
+- Always require explicit configuration via environment variables.
+- Fail fast at startup if required config is missing.
+
+Example (correct):
+```python
+base_url = settings.pulse_api_base_url
+if not base_url:
+    raise ValueError("PULSE_API_BASE_URL must be set")
+```
+
+Example (incorrect):
+```python
+base_url = settings.pulse_api_base_url or "http://localhost:8001"  # ❌ NO!
+```
+
+---
+
 ## Security rules
 
 - Never log secrets, tokens, credentials, or auth headers.

@@ -29,6 +29,7 @@ ENV/
 # IDEs
 .vscode/
 .idea/
+!.idea/runConfigurations/
 *.swp
 *.swo
 *~

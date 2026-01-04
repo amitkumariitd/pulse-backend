@@ -17,7 +17,7 @@ cp .env.example .env.local
 # Edit .env.local and set PULSE_DB_PASSWORD
 
 # 3. Run all components together
-uvicorn main:app --reload --port 8000
+./scripts/run_local.sh
 ```
 
 **What runs:**
@@ -255,13 +255,16 @@ docker restart pulse-backend
 ### Local Mode
 
 **Problem:** API returns 500 error
-**Solution:** Check the terminal logs for errors. Restart with `uvicorn main:app --reload --port 8000`
+**Solution:** Check the terminal logs for errors. Restart with `./scripts/run_local.sh`
 
 **Problem:** Background workers not processing orders
 **Solution:** Workers run automatically. Check logs for errors.
 
 **Problem:** Database connection error
 **Solution:** Make sure PostgreSQL is running and `.env.local` has correct credentials.
+
+**Problem:** "Field required" validation errors on startup
+**Solution:** Make sure you're using `./scripts/run_local.sh` (not `uvicorn` directly) to load `.env.local`
 
 ### Docker Mode
 

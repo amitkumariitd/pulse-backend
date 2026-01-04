@@ -24,7 +24,7 @@ cp .env.example .env.local
 # Edit .env.local and set PULSE_DB_PASSWORD and other local values
 
 # 3. Run unified app (GAPI + Pulse API + Background Workers)
-uvicorn main:app --reload --port 8000
+./scripts/run_local.sh
 ```
 
 **What runs:**

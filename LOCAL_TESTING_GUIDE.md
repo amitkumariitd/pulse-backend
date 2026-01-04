@@ -63,9 +63,11 @@ curl -X POST http://localhost:8000/internal/orders \
     "instrument": "NSE:RELIANCE",
     "side": "BUY",
     "total_quantity": 100,
-    "num_splits": 5,
-    "duration_minutes": 60,
-    "randomize": true
+    "split_config": {
+      "num_splits": 5,
+      "duration_minutes": 60,
+      "randomize": true
+    }
   }'
 ```
 
@@ -235,9 +237,11 @@ curl -X POST http://localhost:8000/internal/orders \
     "instrument": "NSE:TCS",
     "side": "BUY",
     "total_quantity": 100,
-    "num_splits": 5,
-    "duration_minutes": 60,
-    "randomize": false
+    "split_config": {
+      "num_splits": 5,
+      "duration_minutes": 60,
+      "randomize": false
+    }
   }'
 ```
 
@@ -253,9 +257,11 @@ curl -X POST http://localhost:8000/internal/orders \
     "instrument": "NSE:RELIANCE",
     "side": "BUY",
     "total_quantity": 200,
-    "num_splits": 10,
-    "duration_minutes": 120,
-    "randomize": true
+    "split_config": {
+      "num_splits": 10,
+      "duration_minutes": 120,
+      "randomize": true
+    }
   }'
 ```
 
@@ -272,9 +278,11 @@ curl -X POST http://localhost:8000/internal/orders \
     "instrument": "NSE:INFY",
     "side": "SELL",
     "total_quantity": 50,
-    "num_splits": 5,
-    "duration_minutes": 30,
-    "randomize": false
+    "split_config": {
+      "num_splits": 5,
+      "duration_minutes": 30,
+      "randomize": false
+    }
   }'
 
 # Try again with the same order_unique_key
@@ -285,9 +293,11 @@ curl -X POST http://localhost:8000/internal/orders \
     "instrument": "NSE:INFY",
     "side": "SELL",
     "total_quantity": 50,
-    "num_splits": 5,
-    "duration_minutes": 30,
-    "randomize": false
+    "split_config": {
+      "num_splits": 5,
+      "duration_minutes": 30,
+      "randomize": false
+    }
   }'
 ```
 

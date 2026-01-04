@@ -4,15 +4,20 @@ from pydantic import BaseModel, Field
 from typing import Literal
 
 
+class SplitConfig(BaseModel):
+    """Split configuration for an order."""
+    num_splits: int = Field(..., ge=2, le=100, description="Number of child orders to create")
+    duration_minutes: int = Field(..., ge=1, le=1440, description="Total duration in minutes")
+    randomize: bool = Field(..., description="Whether to apply randomization")
+
+
 class InternalCreateOrderRequest(BaseModel):
     """Request model for Pulse internal endpoint."""
     order_unique_key: str = Field(..., min_length=1)
     instrument: str = Field(..., min_length=1)
     side: Literal["BUY", "SELL"]
     total_quantity: int = Field(..., gt=0)
-    num_splits: int = Field(..., ge=2, le=100)
-    duration_minutes: int = Field(..., ge=1, le=1440)
-    randomize: bool
+    split_config: SplitConfig = Field(..., description="Split configuration")
 
 
 class OrderResponse(BaseModel):

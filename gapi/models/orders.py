@@ -54,9 +54,7 @@ class InternalCreateOrderRequest(BaseModel):
     instrument: str = Field(..., min_length=1)
     side: Literal["BUY", "SELL"]
     total_quantity: int = Field(..., gt=0)
-    num_splits: int = Field(..., ge=2, le=100)
-    duration_minutes: int = Field(..., ge=1, le=1440)
-    randomize: bool
+    split_config: SplitConfig = Field(..., description="Split configuration")
 
 
 class OrderResponse(BaseModel):

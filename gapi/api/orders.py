@@ -115,9 +115,7 @@ async def create_order(
         instrument=order_data.instrument,
         side=order_data.side,
         total_quantity=order_data.total_quantity,
-        num_splits=order_data.split_config.num_splits,
-        duration_minutes=order_data.split_config.duration_minutes,
-        randomize=order_data.split_config.randomize
+        split_config=order_data.split_config
     )
     
     # Call Pulse service

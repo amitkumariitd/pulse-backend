@@ -19,9 +19,11 @@ def test_create_order_success():
             "instrument": "NSE:RELIANCE",
             "side": "BUY",
             "total_quantity": 100,
-            "num_splits": 5,
-            "duration_minutes": 60,
-            "randomize": True
+            "split_config": {
+                "num_splits": 5,
+                "duration_minutes": 60,
+                "randomize": True
+            }
         }
 
         headers = {
@@ -56,9 +58,11 @@ def test_create_order_duplicate_key():
             "instrument": "NSE:INFY",
             "side": "SELL",
             "total_quantity": 50,
-            "num_splits": 10,
-            "duration_minutes": 120,
-            "randomize": False
+            "split_config": {
+                "num_splits": 10,
+                "duration_minutes": 120,
+                "randomize": False
+            }
         }
 
         # Act - Create first order
@@ -87,9 +91,11 @@ def test_create_order_generates_tracing_headers():
             "instrument": "BSE:TCS",
             "side": "BUY",
             "total_quantity": 200,
-            "num_splits": 20,
-            "duration_minutes": 240,
-            "randomize": True
+            "split_config": {
+                "num_splits": 20,
+                "duration_minutes": 240,
+                "randomize": True
+            }
         }
 
         # Act - No tracing headers provided

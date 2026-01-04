@@ -48,9 +48,11 @@ Create a new order in the database. This endpoint is called by GAPI after valida
   "instrument": "NSE:RELIANCE",
   "side": "BUY",
   "total_quantity": 100,
-  "num_splits": 5,
-  "duration_minutes": 60,
-  "randomize": true
+  "split_config": {
+    "num_splits": 5,
+    "duration_minutes": 60,
+    "randomize": true
+  }
 }
 ```
 
@@ -59,9 +61,10 @@ Create a new order in the database. This endpoint is called by GAPI after valida
 - `instrument` (string, required): Trading symbol (e.g., "NSE:RELIANCE")
 - `side` (string, required): Order side ("BUY" or "SELL")
 - `total_quantity` (integer, required): Total shares to trade
-- `num_splits` (integer, required): Number of child orders to create
-- `duration_minutes` (integer, required): Total duration in minutes
-- `randomize` (boolean, required): Whether to apply randomization
+- `split_config` (object, required): Split configuration
+  - `num_splits` (integer, required): Number of child orders to create (2-100)
+  - `duration_minutes` (integer, required): Total duration in minutes (1-1440)
+  - `randomize` (boolean, required): Whether to apply randomization
 
 **Response Headers**:
 - `X-Request-Id: <uuid>` - Request identifier (echoed)

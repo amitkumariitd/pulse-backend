@@ -60,9 +60,9 @@ async def create_order(
         "instrument": order_data.instrument,
         "side": order_data.side,
         "total_quantity": order_data.total_quantity,
-        "num_splits": order_data.num_splits
+        "num_splits": order_data.split_config.num_splits
     })
-    
+
     try:
         # Create order in database
         created_order = await order_repo.create_order(
@@ -70,9 +70,9 @@ async def create_order(
             instrument=order_data.instrument,
             side=order_data.side,
             total_quantity=order_data.total_quantity,
-            num_splits=order_data.num_splits,
-            duration_minutes=order_data.duration_minutes,
-            randomize=order_data.randomize,
+            num_splits=order_data.split_config.num_splits,
+            duration_minutes=order_data.split_config.duration_minutes,
+            randomize=order_data.split_config.randomize,
             order_unique_key=order_data.order_unique_key,
             ctx=ctx
         )

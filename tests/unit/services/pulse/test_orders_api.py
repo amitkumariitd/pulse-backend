@@ -11,7 +11,7 @@ import asyncpg
 from fastapi import Request
 from shared.observability.context import RequestContext
 from pulse.api.orders import create_order, generate_order_id
-from pulse.models.orders import InternalCreateOrderRequest
+from pulse.models.orders import InternalCreateOrderRequest, SplitConfig
 
 
 def test_generate_order_id_format():
@@ -65,9 +65,11 @@ async def test_create_order_success():
         instrument="NSE:RELIANCE",
         side="BUY",
         total_quantity=100,
-        num_splits=5,
-        duration_minutes=60,
-        randomize=True
+        split_config=SplitConfig(
+            num_splits=5,
+            duration_minutes=60,
+            randomize=True
+        )
     )
     
     # Act
@@ -109,16 +111,18 @@ async def test_create_order_duplicate_key():
         instrument="NSE:RELIANCE",
         side="BUY",
         total_quantity=100,
-        num_splits=5,
-        duration_minutes=60,
-        randomize=True
+        split_config=SplitConfig(
+            num_splits=5,
+            duration_minutes=60,
+            randomize=True
+        )
     )
-    
+
     # Act & Assert
     with patch('pulse.api.orders.OrderRepository', return_value=mock_repo):
         with pytest.raises(Exception) as exc_info:
             await create_order(request, order_data, mock_pool)
-        
+
         # Should raise HTTPException with 409 status
         assert exc_info.value.status_code == 409
         assert "DUPLICATE_ORDER_UNIQUE_KEY" in str(exc_info.value.detail)

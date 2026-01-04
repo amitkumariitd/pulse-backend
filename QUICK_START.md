@@ -1,15 +1,53 @@
 # Quick Start - Testing Split Order Feature
 
-## ✅ Your System is Ready!
+## Deployment Options
 
-Everything is already set up and running:
-- ✅ Docker containers running (pulse-backend + postgres)
-- ✅ Database migrations applied
-- ✅ API responding on http://localhost:8000
+Choose how you want to run the application:
+
+### Option 1: Local (Recommended - Simplest)
+
+Run all components in a single process (GAPI + Pulse API + Background Workers):
+
+```bash
+# 1. Install dependencies
+pip install -r requirements.txt
+
+# 2. Set up local configuration
+cp .env.example .env.local
+# Edit .env.local and set PULSE_DB_PASSWORD
+
+# 3. Run all components together
+uvicorn main:app --reload --port 8000
+```
+
+**What runs:**
+- ✅ GAPI (external gateway API)
+- ✅ Pulse API (internal HTTP API)
+- ✅ Background Workers (order splitting + timeout monitoring)
+
+**Benefits:** Single process, background workers run automatically, no need for separate terminals!
 
 ---
 
-## Test the Feature (3 Simple Steps)
+### Option 2: Docker
+
+Run with Docker Compose:
+
+```bash
+# Start all services
+make up
+
+# View logs
+make logs
+```
+
+**What runs:**
+- ✅ PostgreSQL database
+- ✅ Pulse Backend (GAPI + Pulse API + Background Workers)
+
+---
+
+## Test the Feature (2 Simple Steps)
 
 ### Step 1: Create an Order
 
@@ -42,20 +80,19 @@ curl -X POST http://localhost:8000/pulse/internal/orders \
 }
 ```
 
-### Step 2: Start the Splitting Worker
+### Step 2: Watch Background Workers Process the Order
 
-```bash
-# In a new terminal
-docker exec -it pulse-backend python -m pulse.background
-```
+**If using Local mode:**
+Background workers are already running! Check the logs in the same terminal.
+
+**If using Docker:**
+Background workers are already running! Check the logs with `make logs`.
 
 **You'll see logs like:**
 ```
 {"level": "INFO", "message": "Found pending orders", "data": {"count": 1}}
 {"level": "INFO", "message": "Order splitting completed", "data": {"order_id": "...", "slices_created": 5}}
 ```
-
-Press `Ctrl+C` to stop the worker when done.
 
 ### Step 3: Verify the Results
 
@@ -169,6 +206,23 @@ Expected: Second request returns `409 Conflict`
 
 ## Useful Commands
 
+### For Local Mode
+
+```bash
+# View all orders (requires local PostgreSQL)
+psql -U pulse -d pulse -c \
+  "SELECT id, instrument, side, total_quantity, num_splits, order_queue_status FROM orders ORDER BY created_at DESC LIMIT 10;"
+
+# View all child orders
+psql -U pulse -d pulse -c \
+  "SELECT order_id, sequence_number, quantity, status FROM order_slices ORDER BY created_at DESC LIMIT 20;"
+
+# Clear all data (reset)
+psql -U pulse -d pulse -c "TRUNCATE orders, order_slices CASCADE;"
+```
+
+### For Docker Mode
+
 ```bash
 # View all orders
 docker exec pulse-postgres psql -U pulse -d pulse -c \
@@ -192,13 +246,26 @@ docker restart pulse-backend
 
 ## Troubleshooting
 
-**Problem:** API returns 500 error  
+### Local Mode
+
+**Problem:** API returns 500 error
+**Solution:** Check the terminal logs for errors. Restart with `uvicorn main:app --reload --port 8000`
+
+**Problem:** Background workers not processing orders
+**Solution:** Workers run automatically. Check logs for errors.
+
+**Problem:** Database connection error
+**Solution:** Make sure PostgreSQL is running and `.env.local` has correct credentials.
+
+### Docker Mode
+
+**Problem:** API returns 500 error
 **Solution:** Restart the container: `docker restart pulse-backend`
 
-**Problem:** Worker not processing orders  
-**Solution:** Make sure worker is running: `docker exec -it pulse-backend python -m pulse.background`
+**Problem:** Background workers not processing orders
+**Solution:** Workers run automatically. Check logs with `make logs`.
 
-**Problem:** Database connection error  
+**Problem:** Database connection error
 **Solution:** Check postgres is running: `docker ps | grep postgres`
 
 ---
@@ -206,7 +273,7 @@ docker restart pulse-backend
 ## Next Steps
 
 1. ✅ Test with GAPI endpoint: `POST /gapi/api/orders` (requires auth token)
-2. ✅ Run integration tests: `make test-int`
+2. ✅ Run integration tests: `make test-int` (Docker) or `python -m pytest tests/integration/ -v`
 3. ✅ Check the full testing guide: `LOCAL_TESTING_GUIDE.md`
 
 ---
@@ -215,8 +282,23 @@ docker restart pulse-backend
 
 Your split order feature is working if:
 - ✅ Orders are created with status `PENDING`
-- ✅ Worker processes them and changes status to `COMPLETED`
+- ✅ Background workers process them and change status to `COMPLETED`
 - ✅ Child orders are created with correct quantities (sum = parent quantity)
 - ✅ Scheduled times are within the duration window
 - ✅ Duplicate `order_unique_key` returns 409 Conflict
+
+---
+
+## Deployment Mode Comparison
+
+| Feature | Local | Docker |
+|---------|-------|--------|
+| **Simplicity** | ⭐⭐⭐ Easiest | ⭐⭐ Easy |
+| **Background Workers** | Auto-start | Auto-start |
+| **Database** | Local PostgreSQL | Docker PostgreSQL |
+| **Terminals Needed** | 1 | 1 (+ docker) |
+| **Production-like** | ❌ No | ✅ Yes |
+| **Best For** | Quick testing | Full testing |
+
+**Recommendation:** Start with **Local** for quick testing, then move to **Docker** for production-like testing.
 

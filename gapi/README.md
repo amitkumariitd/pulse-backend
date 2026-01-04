@@ -6,12 +6,11 @@ External-facing gateway API.
 
 - `GET /health` - Health check
 - `GET /api/hello` - Hello endpoint
+- `POST /api/orders` - Create order (proxies to Pulse)
 
-## Deployment Options
+## Deployment
 
-### Option 1: Unified Deployment (Recommended)
-
-Run from the repo root to deploy both components together:
+Run from the repo root to deploy all components together (GAPI + Pulse API + Background Workers):
 
 ```bash
 cd ..
@@ -21,31 +20,21 @@ uvicorn main:app --reload --port 8000
 
 Access GAPI at: `http://localhost:8000/gapi/api/hello`
 
-### Option 2: Standalone Deployment
+**What runs:**
+- ✅ GAPI (this component)
+- ✅ Pulse API (internal service)
+- ✅ Background workers (automatic order processing)
 
-Run GAPI independently:
-
-```bash
-# Install dependencies from repo root
-pip install -r ../requirements.txt
-
-# Run from gapi directory
-uvicorn main:app --reload --port 8000
-```
-
-Access GAPI at: `http://localhost:8000/api/hello`
+**Benefits:**
+- ✅ Single process for all components
+- ✅ Background workers run automatically
+- ✅ Shared database pool (more efficient)
+- ✅ Simpler for development
 
 ## Testing
 
-**Unified mode:**
 ```bash
 curl http://localhost:8000/gapi/health
 curl http://localhost:8000/gapi/api/hello
-```
-
-**Standalone mode:**
-```bash
-curl http://localhost:8000/health
-curl http://localhost:8000/api/hello
 ```
 

@@ -1,8 +1,9 @@
 # Pulse Backend
 
-Trading backend monorepo with two components:
+Trading backend monorepo with three components:
 - **GAPI**: External-facing gateway API
-- **Pulse**: Internal order management service
+- **Pulse API**: Internal order management HTTP API
+- **Pulse Background**: Background workers for async order processing
 
 ## Requirements
 
@@ -10,9 +11,9 @@ Trading backend monorepo with two components:
 - **PostgreSQL 15+** (for production)
 - **Docker** (optional, for containerized development)
 
-## Quick Start (Single Deployable)
+## Quick Start
 
-Run both components together in a single process:
+Run all three components in a single process:
 
 ```bash
 # 1. Install dependencies
@@ -22,9 +23,14 @@ pip install -r requirements.txt
 cp .env.example .env.local
 # Edit .env.local and set PULSE_DB_PASSWORD and other local values
 
-# 3. Run unified app
+# 3. Run unified app (GAPI + Pulse API + Background Workers)
 uvicorn main:app --reload --port 8000
 ```
+
+**What runs:**
+- ✅ GAPI (external gateway API)
+- ✅ Pulse API (internal HTTP API)
+- ✅ Pulse Background Workers (order splitting + timeout monitoring)
 
 **Endpoints:**
 - `GET /health` - Overall health check
@@ -40,33 +46,9 @@ curl http://localhost:8000/gapi/api/hello
 curl http://localhost:8000/pulse/internal/hello
 ```
 
-## Standalone Deployment
+**Background workers** automatically process orders in the background. No separate process needed!
 
-Each component can also run independently:
-
-### GAPI
-```bash
-# Install dependencies from repo root
-pip install -r requirements.txt
-
-# Run GAPI
-cd gapi
-uvicorn main:app --reload --port 8000
-```
-
-See [gapi/README.md](gapi/README.md) for details.
-
-### Pulse
-```bash
-# Install dependencies from repo root
-pip install -r requirements.txt
-
-# Run Pulse
-cd pulse
-uvicorn main:app --reload --port 8001
-```
-
-See [pulse/README.md](pulse/README.md) for details.
+---
 
 ## Testing
 
@@ -81,7 +63,7 @@ See [TESTING.md](TESTING.md) for details.
 
 ## Architecture
 
-**Today**: Single deployable with two components (GAPI + Pulse)
+**Current**: Single process running GAPI + Pulse API + Background Workers
 
 **Future**: 3 deployables across 2 repos
 - `pulse_api` - HTTP API (this repo)

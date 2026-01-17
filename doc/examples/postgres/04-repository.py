@@ -3,10 +3,18 @@ Example: Repository implementation with PostgreSQL
 
 This shows the complete repository pattern including:
 - Connection management
-- Tracing context propagation
+- Tracing context propagation (async-initiating table)
 - Parameterized queries
 - Error handling
 - History (handled automatically by triggers)
+
+Note: This example uses an async-initiating table (orders).
+For regular tables, only include request_id.
+
+Async-initiating tables store origin context:
+- origin_trace_id, origin_trace_source (from ctx.trace_id, ctx.trace_source)
+- origin_request_id, origin_request_source (from ctx.request_id, ctx.request_source)
+- request_id (pre-generated for async workers)
 """
 
 import asyncpg
@@ -38,24 +46,32 @@ class OrderRepository(BaseRepository):
     async def create_order(self, order_data: dict, ctx: RequestContext) -> dict:
         """
         Create order - trigger automatically records in history.
-        
+
+        This is an ASYNC-INITIATING table, so it stores origin context:
+        - origin_trace_id, origin_trace_source (trace that created this order)
+        - origin_request_id, origin_request_source (request that created this order)
+        - request_id (pre-generated for async workers to use)
+
         Args:
             order_data: Order data (id, instrument, quantity, side, order_type)
             ctx: Request context with tracing information
-            
+
         Returns:
             Created order record
         """
         conn = await self.get_connection()
         try:
+            # Generate new request_id for async workers
+            async_request_id = generate_request_id()
+
             result = await conn.fetchrow(
                 """
                 INSERT INTO orders (
                     id, instrument, quantity, side, order_type, status,
-                    trace_id, request_id,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, NOW(), NOW())
                 RETURNING *
                 """,
                 order_data['id'],
@@ -64,8 +80,11 @@ class OrderRepository(BaseRepository):
                 order_data['side'],
                 order_data['order_type'],
                 'PENDING',
-                ctx.trace_id,          # From RequestContext
-                ctx.request_id         # From RequestContext
+                ctx.trace_id,          # Origin trace ID
+                ctx.trace_source,      # Origin trace source
+                ctx.request_id,        # Origin request ID (API call that created this)
+                ctx.request_source,    # Origin request source
+                async_request_id       # New request_id for async workers
             )
             
             logger.info("Order created", ctx, data={"order_id": result['id']})

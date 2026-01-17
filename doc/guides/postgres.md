@@ -22,12 +22,29 @@
 ### 2. Tracing
 **Why**: Debug across services, audit trail
 
-**Required columns** (every table):
-- `request_id` - Request identifier
+**Two table categories:**
 
-**Additional columns** (async-initiating tables only):
-- `trace_id` - Distributed tracing ID (needed for async continuation)
-- `trace_source` - Where the trace originated (needed for async continuation)
+1. **Async-initiating tables** (spawn async work): `orders`, `jobs`, `tasks`
+   - These tables trigger background/async processing
+   - Need full tracing context for async workers
+
+2. **All other tables**: `order_slices`, `executions`, `users`, `api_keys`, etc.
+   - Either sync-only or created during async processing
+   - Only need current request tracking
+
+**Required columns in ALL tables:**
+- `request_id` - Request identifier (pre-generated for async workers)
+
+**Additional columns for async-initiating tables ONLY:**
+- `origin_trace_id` - Trace ID that created this record
+- `origin_trace_source` - Where the trace originated
+- `origin_request_id` - Request ID that created this record
+- `origin_request_source` - Where the request originated
+
+**Why store origin context?**
+- Audit trail: Know exactly which API call created this async work
+- Debugging: Trace back from async worker to original request
+- Compliance: Full lineage of who/what initiated the work
 
 **Example**: `doc/examples/postgres/01-basic-table.sql`
 
@@ -72,11 +89,13 @@
 - `id` - Primary key (VARCHAR or UUID)
 - `created_at` - TIMESTAMPTZ NOT NULL DEFAULT NOW(), auto-set by database
 - `updated_at` - TIMESTAMPTZ NOT NULL DEFAULT NOW(), auto-updated by trigger
-- `request_id` - Tracing (VARCHAR)
+- `request_id` - VARCHAR(64) NOT NULL, request identifier
 
-### Additional Columns (Async-Initiating Tables)
-- `trace_id` - VARCHAR(64), trace identifier for distributed tracing
-- `trace_source` - VARCHAR(50), origin of the trace (needed for async processes to continue the trace)
+### Additional Columns (Async-Initiating Tables ONLY)
+- `origin_trace_id` - VARCHAR(64) NOT NULL, trace ID that created this record
+- `origin_trace_source` - VARCHAR(100) NOT NULL, where the trace originated
+- `origin_request_id` - VARCHAR(64) NOT NULL, request ID that created this record
+- `origin_request_source` - VARCHAR(100) NOT NULL, where the request originated
 
 ### Timestamp Format
 **All timestamps MUST be stored as TIMESTAMPTZ:**

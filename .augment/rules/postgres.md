@@ -46,24 +46,29 @@ class OrderRepository(BaseRepository):
 
 ### Tracing (non-negotiable)
 
-- ALL tables MUST have `request_id` and `span_id` columns
-- Async-initiating tables MUST also have `trace_id` and `trace_source` columns
+**Two table categories:**
+
+1. **Async-initiating tables** (spawn async work): `orders`, `jobs`, `tasks`
+2. **All other tables**: Everything else
+
+**Required columns in ALL tables:**
+```sql
+request_id VARCHAR(64) NOT NULL
+```
+
+**Additional columns for async-initiating tables ONLY:**
+```sql
+origin_trace_id VARCHAR(64) NOT NULL,
+origin_trace_source VARCHAR(100) NOT NULL,
+origin_request_id VARCHAR(64) NOT NULL,
+origin_request_source VARCHAR(100) NOT NULL
+```
+
+**Rules:**
 - ALL database writes MUST include tracing values from `RequestContext`
 - Pass `RequestContext` to ALL repository methods
-
-**Required columns in every table:**
-```sql
-request_id VARCHAR(64) NOT NULL,
-span_id VARCHAR(16) NOT NULL
-```
-
-**Additional columns for async-initiating tables:**
-```sql
-trace_id VARCHAR(64) NOT NULL,
-trace_source VARCHAR(50) NOT NULL
-```
-
-**Required in every INSERT/UPDATE/DELETE:**
+- `origin_*` columns capture the context that created the record
+- `request_id` is pre-generated for async workers to use
 
 ### Query Safety (mandatory)
 
@@ -94,11 +99,12 @@ await conn.execute(
 - `created_at` - TIMESTAMPTZ NOT NULL DEFAULT NOW()
 - `updated_at` - TIMESTAMPTZ NOT NULL DEFAULT NOW()
 - `request_id` - VARCHAR(64) NOT NULL
-- `span_id` - VARCHAR(16) NOT NULL
 
-**Additional columns for async-initiating tables:**
-- `trace_id` - VARCHAR(64) NOT NULL
-- `trace_source` - VARCHAR(50) NOT NULL
+**Additional columns for async-initiating tables ONLY:**
+- `origin_trace_id` - VARCHAR(64) NOT NULL
+- `origin_trace_source` - VARCHAR(100) NOT NULL
+- `origin_request_id` - VARCHAR(64) NOT NULL
+- `origin_request_source` - VARCHAR(100) NOT NULL
 
 **FORBIDDEN columns (never store derived/aggregated data):**
 - ❌ Counts (e.g., `total_child_orders`, `executed_child_orders`, `failed_child_orders`)

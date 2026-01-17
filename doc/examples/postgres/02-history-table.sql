@@ -10,7 +10,7 @@ CREATE TABLE orders_history (
     history_id BIGSERIAL PRIMARY KEY,
     operation VARCHAR(10) NOT NULL CHECK (operation IN ('INSERT', 'UPDATE', 'DELETE')),
     changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    
+
     -- All columns from main table
     id VARCHAR(64) NOT NULL,
     instrument VARCHAR(50) NOT NULL,
@@ -18,9 +18,12 @@ CREATE TABLE orders_history (
     side VARCHAR(10) NOT NULL,
     order_type VARCHAR(20) NOT NULL,
     status VARCHAR(20) NOT NULL,
-    
-    -- Tracing (from main table)
-    trace_id VARCHAR(64) NOT NULL,
+
+    -- Tracing (from main table - async-initiating)
+    origin_trace_id VARCHAR(64) NOT NULL,
+    origin_trace_source VARCHAR(100) NOT NULL,
+    origin_request_id VARCHAR(64) NOT NULL,
+    origin_request_source VARCHAR(100) NOT NULL,
     request_id VARCHAR(64) NOT NULL,
 
     -- Timestamps (from main table)
@@ -45,13 +48,13 @@ BEGIN
         INSERT INTO orders_history (
             operation, changed_at,
             id, instrument, quantity, side, order_type, status,
-            trace_id, request_id,
+            origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
             created_at, updated_at
         )
         VALUES (
             'DELETE', NOW(),
             OLD.id, OLD.instrument, OLD.quantity, OLD.side, OLD.order_type, OLD.status,
-            OLD.trace_id, OLD.request_id,
+            OLD.origin_trace_id, OLD.origin_trace_source, OLD.origin_request_id, OLD.origin_request_source, OLD.request_id,
             OLD.created_at, OLD.updated_at
         );
         RETURN OLD;
@@ -59,13 +62,13 @@ BEGIN
         INSERT INTO orders_history (
             operation, changed_at,
             id, instrument, quantity, side, order_type, status,
-            trace_id, request_id,
+            origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
             created_at, updated_at
         )
         VALUES (
             'UPDATE', NOW(),
             OLD.id, OLD.instrument, OLD.quantity, OLD.side, OLD.order_type, OLD.status,
-            OLD.trace_id, OLD.request_id,
+            OLD.origin_trace_id, OLD.origin_trace_source, OLD.origin_request_id, OLD.origin_request_source, OLD.request_id,
             OLD.created_at, OLD.updated_at
         );
         RETURN NEW;
@@ -73,13 +76,13 @@ BEGIN
         INSERT INTO orders_history (
             operation, changed_at,
             id, instrument, quantity, side, order_type, status,
-            trace_id, request_id,
+            origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
             created_at, updated_at
         )
         VALUES (
             'INSERT', NOW(),
             NEW.id, NEW.instrument, NEW.quantity, NEW.side, NEW.order_type, NEW.status,
-            NEW.trace_id, NEW.request_id,
+            NEW.origin_trace_id, NEW.origin_trace_source, NEW.origin_request_id, NEW.origin_request_source, NEW.request_id,
             NEW.created_at, NEW.updated_at
         );
         RETURN NEW;

@@ -1,12 +1,19 @@
 """
-Example: Alembic migration for creating orders table with history
+Example: Alembic migration for creating async-initiating table with history
 
-This shows the complete migration including:
-- Main table creation
+This shows the complete migration for an ASYNC-INITIATING table including:
+- Main table creation (with origin_trace_*, origin_request_*, request_id)
 - Indexes
 - History table creation
 - Trigger function
 - Triggers
+
+For REGULAR tables (non-async), only include request_id
+
+Async-initiating tables store the origin context:
+- origin_trace_id, origin_trace_source (trace that created this record)
+- origin_request_id, origin_request_source (request that created this record)
+- request_id (pre-generated for async workers to use)
 
 Usage:
     alembic revision -m "create orders table"
@@ -19,7 +26,7 @@ import sqlalchemy as sa
 
 
 def upgrade():
-    # Create main table
+    # Create main table (async-initiating)
     op.execute("""
         CREATE TABLE orders (
             id VARCHAR(64) PRIMARY KEY,
@@ -28,7 +35,10 @@ def upgrade():
             side VARCHAR(10) NOT NULL CHECK (side IN ('BUY', 'SELL')),
             order_type VARCHAR(20) NOT NULL CHECK (order_type IN ('MARKET', 'LIMIT')),
             status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-            trace_id VARCHAR(64) NOT NULL,
+            origin_trace_id VARCHAR(64) NOT NULL,
+            origin_trace_source VARCHAR(100) NOT NULL,
+            origin_request_id VARCHAR(64) NOT NULL,
+            origin_request_source VARCHAR(100) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
@@ -36,7 +46,7 @@ def upgrade():
     """)
 
     # Create indexes for main table
-    op.execute("CREATE INDEX idx_orders_trace_id ON orders(trace_id)")
+    op.execute("CREATE INDEX idx_orders_origin_trace_id ON orders(origin_trace_id)")
     op.execute("CREATE INDEX idx_orders_created_at ON orders(created_at)")
     op.execute("CREATE INDEX idx_orders_status ON orders(status)")
 
@@ -52,10 +62,11 @@ def upgrade():
             side VARCHAR(10) NOT NULL,
             order_type VARCHAR(20) NOT NULL,
             status VARCHAR(20) NOT NULL,
-            trace_id VARCHAR(64) NOT NULL,
+            origin_trace_id VARCHAR(64) NOT NULL,
+            origin_trace_source VARCHAR(100) NOT NULL,
+            origin_request_id VARCHAR(64) NOT NULL,
+            origin_request_source VARCHAR(100) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            tracing_source VARCHAR(50) NOT NULL,
-            request_source VARCHAR(50) NOT NULL,
             created_at TIMESTAMPTZ NOT NULL,
             updated_at TIMESTAMPTZ NOT NULL
         )
@@ -77,13 +88,13 @@ def upgrade():
                 INSERT INTO orders_history (
                     operation, changed_at,
                     id, instrument, quantity, side, order_type, status,
-                    trace_id, request_id, tracing_source, request_source,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 )
                 VALUES (
                     'DELETE', NOW(),
                     OLD.id, OLD.instrument, OLD.quantity, OLD.side, OLD.order_type, OLD.status,
-                    OLD.trace_id, OLD.request_id, OLD.tracing_source, OLD.request_source,
+                    OLD.origin_trace_id, OLD.origin_trace_source, OLD.origin_request_id, OLD.origin_request_source, OLD.request_id,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN OLD;
@@ -91,13 +102,13 @@ def upgrade():
                 INSERT INTO orders_history (
                     operation, changed_at,
                     id, instrument, quantity, side, order_type, status,
-                    trace_id, request_id, tracing_source, request_source,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 )
                 VALUES (
                     'UPDATE', NOW(),
                     OLD.id, OLD.instrument, OLD.quantity, OLD.side, OLD.order_type, OLD.status,
-                    OLD.trace_id, OLD.request_id, OLD.tracing_source, OLD.request_source,
+                    OLD.origin_trace_id, OLD.origin_trace_source, OLD.origin_request_id, OLD.origin_request_source, OLD.request_id,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN NEW;
@@ -105,13 +116,13 @@ def upgrade():
                 INSERT INTO orders_history (
                     operation, changed_at,
                     id, instrument, quantity, side, order_type, status,
-                    trace_id, request_id, tracing_source, request_source,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 )
                 VALUES (
                     'INSERT', NOW(),
                     NEW.id, NEW.instrument, NEW.quantity, NEW.side, NEW.order_type, NEW.status,
-                    NEW.trace_id, NEW.request_id, NEW.tracing_source, NEW.request_source,
+                    NEW.origin_trace_id, NEW.origin_trace_source, NEW.origin_request_id, NEW.origin_request_source, NEW.request_id,
                     NEW.created_at, NEW.updated_at
                 );
                 RETURN NEW;

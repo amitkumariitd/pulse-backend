@@ -54,13 +54,13 @@ async def process_single_order(
     """
     order_id = order['id']
 
-    # Create a new context that inherits the parent order's trace_id and trace_source
-    # but generates new request_id for this background operation
+    # Create a new context that inherits the parent order's origin trace context
+    # This ensures slices inherit the same origin_* fields as the parent order
     order_ctx = RequestContext(
-        trace_id=order['trace_id'],  # Use parent order's trace_id
-        trace_source=order['trace_source'],  # Use parent order's trace_source
-        request_id=generate_request_id(),  # New request_id for this worker operation
-        request_source="PULSE_BACKGROUND:splitting_worker",
+        trace_id=order['origin_trace_id'],  # Use parent order's origin_trace_id
+        trace_source=order['origin_trace_source'],  # Use parent order's origin_trace_source
+        request_id=order['origin_request_id'],  # Use parent order's origin_request_id
+        request_source=order['origin_request_source'],  # Use parent order's origin_request_source
         span_source="PULSE_BACKGROUND:splitting_worker"
     )
 

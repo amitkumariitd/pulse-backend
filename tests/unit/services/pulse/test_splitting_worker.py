@@ -43,8 +43,11 @@ def sample_order():
         'randomize': False,
         'created_at': created_at,
         'order_queue_status': 'PENDING',
-        'trace_id': 't1234567890abcdef1234',
-        'trace_source': 'TEST:parent_order'
+        'origin_trace_id': 't1234567890abcdef1234',
+        'origin_trace_source': 'TEST:parent_order',
+        'origin_request_id': 'r1234567890abcdef1234',
+        'origin_request_source': 'TEST:parent_order',
+        'request_id': 'r_async_worker_123'
     }
 
 
@@ -96,14 +99,16 @@ async def test_process_single_order_success(mock_ctx, sample_order):
     assert result is True
 
     # Verify status was updated to IN_PROGRESS
-    # The context should have the parent order's trace_id
+    # The context should have the parent order's origin trace context
     assert mock_order_repo.update_order_status.called
     update_call_args = mock_order_repo.update_order_status.call_args_list[0]
     assert update_call_args[0][0] == 'order_123'
     assert update_call_args[0][1] == 'IN_PROGRESS'
     update_ctx = update_call_args[0][2]
-    assert update_ctx.trace_id == 't1234567890abcdef1234'  # From parent order
-    assert update_ctx.trace_source == 'TEST:parent_order'  # From parent order
+    assert update_ctx.trace_id == 't1234567890abcdef1234'  # From parent order's origin_trace_id
+    assert update_ctx.trace_source == 'TEST:parent_order'  # From parent order's origin_trace_source
+    assert update_ctx.request_id == 'r1234567890abcdef1234'  # From parent order's origin_request_id
+    assert update_ctx.request_source == 'TEST:parent_order'  # From parent order's origin_request_source
 
     # Verify slices were created
     assert mock_slice_repo.create_order_slices_batch.called
@@ -111,9 +116,11 @@ async def test_process_single_order_success(mock_ctx, sample_order):
     slice_records = call_args[0][0]
     slice_ctx = call_args[0][1]
 
-    # Verify context passed to slice creation has parent's trace_id
+    # Verify context passed to slice creation has parent's origin trace context
     assert slice_ctx.trace_id == 't1234567890abcdef1234'
     assert slice_ctx.trace_source == 'TEST:parent_order'
+    assert slice_ctx.request_id == 'r1234567890abcdef1234'
+    assert slice_ctx.request_source == 'TEST:parent_order'
     
     # Verify correct number of slices
     assert len(slice_records) == 5

@@ -1,7 +1,7 @@
 """Order splitting algorithm for Pulse.
 
 This module implements the quantity and time distribution logic described in
-`doc/requirements/split_order_feature.md`.
+`doc/requirements/002.split_order_feature.md`.
 
 It is intentionally pure (no database access). The background worker will use
 this to calculate per-slice quantities and scheduled times, then persist them
@@ -37,7 +37,7 @@ def calculate_split_schedule(
 ) -> List[SplitSlice]:
     """Calculate quantities and scheduled times for child orders.
 
-    Follows the algorithm specified in doc/requirements/split_order_feature.md.
+    Follows the algorithm specified in doc/requirements/002.split_order_feature.md.
 
     All scheduled_at values are within the inclusive window:
         [parent_created_at, parent_created_at + duration_minutes].

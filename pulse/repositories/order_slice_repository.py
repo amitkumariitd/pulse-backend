@@ -3,7 +3,7 @@ import asyncpg
 from typing import Optional
 from datetime import datetime
 from shared.database.base_repository import BaseRepository
-from shared.observability.context import RequestContext
+from shared.observability.context import RequestContext, generate_request_id
 from shared.observability.logger import get_logger
 
 logger = get_logger("pulse.repositories.order_slice")
@@ -48,7 +48,6 @@ class OrderSliceRepository(BaseRepository):
         conn = await self.get_connection()
         try:
             # Generate new request_id for async workers
-            from pulse.utils.id_generator import generate_request_id
             async_request_id = generate_request_id()
 
             result = await conn.fetchrow(
@@ -113,8 +112,6 @@ class OrderSliceRepository(BaseRepository):
         conn = await self.get_connection()
         try:
             # Use a transaction for batch insert
-            from pulse.utils.id_generator import generate_request_id
-
             async with conn.transaction():
                 count = 0
                 for slice_data in slices:

@@ -2,7 +2,7 @@
 import asyncpg
 from typing import Optional
 from shared.database.base_repository import BaseRepository
-from shared.observability.context import RequestContext
+from shared.observability.context import RequestContext, generate_request_id
 from shared.observability.logger import get_logger
 
 logger = get_logger("pulse.repositories.order")
@@ -49,7 +49,6 @@ class OrderRepository(BaseRepository):
         conn = await self.get_connection()
         try:
             # Generate new request_id for async workers
-            from pulse.utils.id_generator import generate_request_id
             async_request_id = generate_request_id()
 
             result = await conn.fetchrow(

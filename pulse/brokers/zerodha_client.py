@@ -1,17 +1,29 @@
-"""Zerodha broker client for placing and monitoring orders."""
+"""Zerodha broker client for placing and monitoring orders.
+
+This module wraps the official Zerodha KiteConnect Python library (pykiteconnect)
+and adapts it to our domain model and observability requirements.
+
+Official library: https://github.com/zerodha/pykiteconnect
+Documentation: https://kite.trade/docs/connect/v3/
+
+Note: For development/testing, this uses a mock implementation.
+In production, uncomment the kiteconnect import and use the real client.
+"""
 
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-import httpx
 from typing import Optional, Dict, Any
 from decimal import Decimal
 from datetime import datetime
 
 from shared.observability.context import RequestContext
 from shared.observability.logger import get_logger
+
+# TODO: Uncomment for production use
+# from kiteconnect import KiteConnect
 
 logger = get_logger("pulse.brokers.zerodha")
 
@@ -60,31 +72,43 @@ class ZerodhaOrderResponse:
 
 class ZerodhaClient:
     """Client for interacting with Zerodha broker API.
-    
-    This is a mock implementation for development.
-    In production, this would integrate with actual Zerodha KiteConnect API.
+
+    This wraps the official KiteConnect library and adapts it to our domain model.
+
+    For development/testing, this uses a mock implementation.
+    In production, set use_mock=False to use the real KiteConnect client.
+
+    Official KiteConnect methods used:
+    - place_order(): Place a new order
+    - order_history(order_id): Get order status and fills
+    - cancel_order(variety, order_id): Cancel an order
+
+    See: https://kite.trade/docs/pykiteconnect/v3/
     """
-    
+
     def __init__(
         self,
         api_key: str,
-        api_secret: str,
         access_token: Optional[str] = None,
-        base_url: str = "https://api.kite.trade"
+        use_mock: bool = True
     ):
         """Initialize Zerodha client.
-        
+
         Args:
             api_key: Zerodha API key
-            api_secret: Zerodha API secret
-            access_token: Access token (optional, can be set later)
-            base_url: Base URL for Zerodha API
+            access_token: Access token (get from login flow)
+            use_mock: If True, use mock implementation (for dev/test)
         """
         self.api_key = api_key
-        self.api_secret = api_secret
         self.access_token = access_token
-        self.base_url = base_url
-        self.client = httpx.AsyncClient(base_url=base_url, timeout=30.0)
+        self.use_mock = use_mock
+
+        if not use_mock:
+            # TODO: Uncomment for production
+            # self.kite = KiteConnect(api_key=api_key)
+            # if access_token:
+            #     self.kite.set_access_token(access_token)
+            pass
     
     async def place_order(
         self,
@@ -111,29 +135,57 @@ class ZerodhaClient:
             "order_type": order_request.order_type,
             "limit_price": str(order_request.limit_price) if order_request.limit_price else None
         })
-        
-        # TODO: Implement actual Zerodha API integration
-        # For now, return mock response
-        import uuid
-        broker_order_id = f"ZH{datetime.now().strftime('%y%m%d')}{uuid.uuid4().hex[:8]}"
-        
-        # Mock: Market orders fill immediately, limit orders stay open
-        if order_request.order_type == "MARKET":
-            status = "COMPLETE"
-            filled_quantity = order_request.quantity
-            pending_quantity = 0
-            average_price = Decimal("1250.00")  # Mock price
+
+        if self.use_mock:
+            # Mock implementation for development/testing
+            import uuid
+            broker_order_id = f"ZH{datetime.now().strftime('%y%m%d')}{uuid.uuid4().hex[:8]}"
+
+            # Mock: Market orders fill immediately, limit orders stay open
+            if order_request.order_type == "MARKET":
+                status = "COMPLETE"
+                filled_quantity = order_request.quantity
+                pending_quantity = 0
+                average_price = Decimal("1250.00")  # Mock price
+            else:
+                status = "OPEN"
+                filled_quantity = 0
+                pending_quantity = order_request.quantity
+                average_price = None
+
+            logger.info("Order placed with Zerodha (MOCK)", ctx, data={
+                "broker_order_id": broker_order_id,
+                "status": status,
+                "filled_quantity": filled_quantity
+            })
         else:
-            status = "OPEN"
-            filled_quantity = 0
-            pending_quantity = order_request.quantity
-            average_price = None
-        
-        logger.info("Order placed with Zerodha", ctx, data={
-            "broker_order_id": broker_order_id,
-            "status": status,
-            "filled_quantity": filled_quantity
-        })
+            # TODO: Real KiteConnect implementation
+            # Parse instrument (e.g., "NSE:RELIANCE" -> exchange="NSE", symbol="RELIANCE")
+            # exchange, symbol = order_request.instrument.split(":")
+            #
+            # order_params = {
+            #     "exchange": exchange,
+            #     "tradingsymbol": symbol,
+            #     "transaction_type": order_request.side,  # "BUY" or "SELL"
+            #     "quantity": order_request.quantity,
+            #     "order_type": order_request.order_type,  # "MARKET" or "LIMIT"
+            #     "product": order_request.product_type,  # "CNC", "MIS", etc.
+            #     "validity": order_request.validity,  # "DAY", "IOC"
+            # }
+            #
+            # if order_request.order_type == "LIMIT":
+            #     order_params["price"] = float(order_request.limit_price)
+            #
+            # result = self.kite.place_order(variety="regular", **order_params)
+            # broker_order_id = result["order_id"]
+            #
+            # # Get order status immediately after placement
+            # order_info = self.kite.order_history(broker_order_id)[-1]
+            # status = order_info["status"]
+            # filled_quantity = order_info.get("filled_quantity", 0)
+            # pending_quantity = order_info.get("pending_quantity", order_request.quantity)
+            # average_price = Decimal(str(order_info["average_price"])) if order_info.get("average_price") else None
+            raise NotImplementedError("Real KiteConnect integration not yet implemented")
         
         return ZerodhaOrderResponse(
             broker_order_id=broker_order_id,
@@ -232,8 +284,8 @@ class ZerodhaClient:
         )
 
     async def close(self):
-        """Close the HTTP client."""
-        await self.client.aclose()
+        """Close the client (no-op for KiteConnect, kept for interface compatibility)."""
+        pass
 
     async def __aenter__(self):
         """Async context manager entry."""

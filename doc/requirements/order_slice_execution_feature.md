@@ -1,0 +1,1399 @@
+# Order Slice Execution Feature
+
+## Overview
+
+This document defines the requirements for executing order slices on Zerodha broker. Order slices are created by the splitting worker and need to be executed at their scheduled times.
+
+### Key Concepts
+
+**Executor Identity:**
+- Each worker (thread/process) has a unique `executor_id`
+- Format: `{pod_name}-worker-{worker_index}` (e.g., `exec-deployment-abc123-worker-2`)
+- Multiple executors can run within a single pod
+- Example: 3 pods × 5 workers = 15 total executors
+
+**Attempt Tracking:**
+- Each execution attempt has a unique `attempt_id`
+- Format: `attempt-{uuid}` (e.g., `attempt-550e8400-e29b-41d4-a716-446655440000`)
+- Sent to broker in API call metadata (if supported)
+- Used to prevent duplicate orders and track execution history
+
+**Ownership and Timeout:**
+- Executor claims ownership by setting `executor_id` and `attempt_id`
+- Ownership expires after 5 minutes (configurable via `EXECUTOR_TIMEOUT_MINUTES`)
+- Before every broker call, executor verifies it still owns the slice
+- If ownership expired, another executor can claim the slice
+- Prevents stuck slices when executor crashes
+
+**Concurrency Safety:**
+- `FOR UPDATE SKIP LOCKED` prevents multiple executors from claiming same slice
+- Ownership verification prevents duplicate broker calls
+- Timeout mechanism enables automatic recovery from crashes
+
+---
+
+## Goals
+
+1. **Execute order slices** on Zerodha at their scheduled times
+2. **Prevent duplicate execution** across multiple worker containers
+3. **Support multiple order types** (market orders, limit orders)
+4. **Handle partial fills** for limit orders
+5. **Recover from failures** (network errors, worker crashes, broker rejections)
+6. **Provide full observability** (track every state transition)
+
+---
+
+## Non-Goals (Out of Scope)
+
+- Multi-broker support (only Zerodha in v1)
+- Order modification after placement
+- Advanced order types (bracket orders, cover orders)
+- Real-time price feeds
+- Portfolio management
+
+---
+
+## User Stories
+
+### Story 1: Execute Market Order
+**As a** trader  
+**I want** my order slices to execute immediately at market price  
+**So that** I can get quick execution without waiting
+
+**Acceptance Criteria:**
+- Order slice executes within 5 seconds of scheduled time
+- Full quantity is filled immediately
+- Execution price is recorded
+- Status updates to COMPLETED with SUCCESS result
+
+---
+
+### Story 2: Execute Limit Order with Polling
+**As a** trader  
+**I want** my order slices to execute at my specified limit price  
+**So that** I can control the execution price
+
+**Acceptance Criteria:**
+- Order is placed at specified limit price
+- System polls Zerodha every 5 seconds for status
+- Partial fills are tracked and recorded
+- Order completes when fully filled or timeout is reached
+- If timeout with partial fill, status shows PARTIAL_SUCCESS
+
+---
+
+### Story 3: Handle Network Failures
+**As a** system operator  
+**I want** the system to retry on network failures  
+**So that** temporary network issues don't cause order failures
+
+**Acceptance Criteria:**
+- Network failures are detected (timeout, connection error)
+- Slice is released for retry (up to 3 attempts)
+- Before retry, system checks if order was already placed at broker
+- No duplicate orders are created
+- After 3 failures, slice is marked as FAILED with NETWORK_FAILURE result
+
+---
+
+### Story 4: Recover from Worker Crashes
+**As a** system operator  
+**I want** the system to recover when worker containers crash  
+**So that** order execution continues without manual intervention
+
+**Acceptance Criteria:**
+- Timeout monitor detects slices with no heartbeat for 5 minutes
+- Stuck slices are released for another worker to pick up
+- Recovery worker checks broker for existing order before placing new one
+- No duplicate orders are created
+- Execution continues from where it left off
+
+---
+
+### Story 5: Handle Broker Rejections
+**As a** trader  
+**I want** to be notified when broker rejects my order  
+**So that** I can take corrective action
+
+**Acceptance Criteria:**
+- Broker rejection is detected (insufficient funds, invalid params, etc.)
+- Slice is marked as COMPLETED with BROKER_REJECTED result
+- Error code and message from broker are recorded
+- No retry is attempted (broker rejection is final)
+- Alert is sent to monitoring system
+
+---
+
+## Database Schema
+
+### Order Slices Table (Clean - Definition Only)
+
+```sql
+CREATE TABLE order_slices (
+    -- Identity
+    id VARCHAR(64) PRIMARY KEY,
+    order_id VARCHAR(64) NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+
+    -- Slice definition (immutable)
+    instrument VARCHAR(50) NOT NULL,
+    side VARCHAR(10) NOT NULL CHECK (side IN ('BUY', 'SELL')),
+    quantity INTEGER NOT NULL CHECK (quantity > 0),
+    sequence_number INTEGER NOT NULL CHECK (sequence_number > 0),
+    scheduled_at TIMESTAMPTZ NOT NULL,
+
+    -- Order parameters (immutable)
+    order_type VARCHAR(20) NOT NULL CHECK (order_type IN ('MARKET', 'LIMIT')),
+    limit_price DECIMAL(15, 4),  -- Required for LIMIT orders
+    product_type VARCHAR(20) NOT NULL DEFAULT 'CNC',  -- CNC, MIS, NRML
+    validity VARCHAR(10) NOT NULL DEFAULT 'DAY',      -- DAY, IOC
+
+    -- Lifecycle status (simple)
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+        CHECK (status IN (
+            'PENDING',      -- Created, waiting to be executed
+            'EXECUTING',    -- Currently being executed
+            'COMPLETED',    -- Execution finished (check execution table for result)
+            'CANCELLED',    -- Cancelled before execution
+            'SKIPPED'       -- Skipped (parent order cancelled)
+        )),
+
+    -- Tracing (mandatory)
+    origin_trace_id VARCHAR(64) NOT NULL,
+    origin_trace_source VARCHAR(100) NOT NULL,
+    origin_request_id VARCHAR(64) NOT NULL,
+    origin_request_source VARCHAR(100) NOT NULL,
+    request_id VARCHAR(64) NOT NULL,
+
+    -- Timestamps (mandatory)
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT unique_order_sequence UNIQUE (order_id, sequence_number)
+);
+
+CREATE INDEX idx_order_slices_status_scheduled ON order_slices(status, scheduled_at);
+CREATE INDEX idx_order_slices_order_id ON order_slices(order_id);
+```
+
+### Order Slice Executions Table (New - All Execution Data)
+
+```sql
+CREATE TABLE order_slice_executions (
+    -- Identity
+    id VARCHAR(64) PRIMARY KEY,
+    slice_id VARCHAR(64) NOT NULL REFERENCES order_slices(id) ON DELETE CASCADE,
+
+    -- Execution attempt
+    attempt_number INTEGER NOT NULL CHECK (attempt_number > 0),
+    attempt_id VARCHAR(64) NOT NULL UNIQUE,  -- Unique ID for this attempt
+
+    -- Ownership and concurrency control
+    executor_id VARCHAR(100) NOT NULL,       -- Unique executor ID (e.g., "pod-exec-1-worker-2")
+    executor_claimed_at TIMESTAMPTZ NOT NULL,
+    executor_timeout_at TIMESTAMPTZ NOT NULL,
+    last_heartbeat_at TIMESTAMPTZ NOT NULL,
+
+    -- Execution status
+    execution_status VARCHAR(20) NOT NULL DEFAULT 'CLAIMED'
+        CHECK (execution_status IN (
+            'CLAIMED',             -- Executor claimed ownership
+            'VALIDATING',          -- Validating order parameters
+            'PLACING',             -- Placing order with broker
+            'PLACED',              -- Order placed, monitoring
+            'POLLING',             -- Polling broker for status
+            'COMPLETED',           -- Execution finished
+            'FAILED',              -- Execution failed
+            'TIMEOUT',             -- Ownership timeout (executor crashed)
+            'ABORTED'              -- Aborted (lost ownership)
+        )),
+
+    -- Broker interaction
+    broker_order_id VARCHAR(100),
+    broker_order_status VARCHAR(20)
+        CHECK (broker_order_status IS NULL OR broker_order_status IN (
+            'PENDING',             -- Awaiting broker confirmation
+            'OPEN',                -- Order open at broker
+            'PARTIALLY_FILLED',    -- Some shares filled
+            'COMPLETE',            -- Fully filled
+            'CANCELLED',           -- Cancelled at broker
+            'REJECTED',            -- Rejected by broker
+            'EXPIRED'              -- Order expired
+        )),
+
+    -- Execution result
+    filled_quantity INTEGER DEFAULT 0 CHECK (filled_quantity >= 0),
+    average_price DECIMAL(15, 4),
+    execution_result VARCHAR(30)
+        CHECK (execution_result IS NULL OR execution_result IN (
+            'SUCCESS',             -- Fully executed
+            'PARTIAL_SUCCESS',     -- Partially filled (acceptable)
+            'BROKER_REJECTED',     -- Broker rejected
+            'NETWORK_FAILURE',     -- Network/API error
+            'TIMEOUT',             -- Execution timed out
+            'CANCELLED',           -- Cancelled by user/system
+            'VALIDATION_FAILED',   -- Pre-execution validation failed
+            'EXECUTOR_TIMEOUT'     -- Executor crashed/timed out
+        )),
+
+    -- Timing
+    validation_started_at TIMESTAMPTZ,
+    placement_attempted_at TIMESTAMPTZ,
+    placement_confirmed_at TIMESTAMPTZ,
+    last_broker_poll_at TIMESTAMPTZ,
+    completed_at TIMESTAMPTZ,
+
+    -- Error tracking
+    error_code VARCHAR(50),
+    error_message TEXT,
+
+    -- Tracing
+    request_id VARCHAR(64) NOT NULL,
+
+    -- Timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT unique_slice_attempt UNIQUE (slice_id, attempt_number)
+);
+
+CREATE INDEX idx_executions_slice_id ON order_slice_executions(slice_id);
+CREATE INDEX idx_executions_attempt_id ON order_slice_executions(attempt_id);
+CREATE INDEX idx_executions_executor_id ON order_slice_executions(executor_id);
+CREATE INDEX idx_executions_status ON order_slice_executions(execution_status);
+CREATE INDEX idx_executions_timeout ON order_slice_executions(executor_timeout_at)
+    WHERE execution_status IN ('CLAIMED', 'VALIDATING', 'PLACING', 'PLACED', 'POLLING');
+```
+
+### Order Slice Broker Events Table (Audit Trail)
+
+```sql
+CREATE TABLE order_slice_broker_events (
+    -- Identity
+    id VARCHAR(64) PRIMARY KEY,
+    execution_id VARCHAR(64) NOT NULL REFERENCES order_slice_executions(id) ON DELETE CASCADE,
+    slice_id VARCHAR(64) NOT NULL REFERENCES order_slices(id) ON DELETE CASCADE,
+
+    -- Event metadata
+    event_sequence INTEGER NOT NULL CHECK (event_sequence > 0),
+    event_type VARCHAR(30) NOT NULL
+        CHECK (event_type IN ('PLACE_ORDER', 'STATUS_POLL', 'CANCEL_REQUEST')),
+
+    -- Execution context
+    executor_id VARCHAR(100) NOT NULL,     -- Unique executor ID that made this call
+    attempt_id VARCHAR(64) NOT NULL,       -- Attempt ID for this execution
+
+    -- Broker interaction
+    broker_name VARCHAR(50) NOT NULL,
+    broker_order_id VARCHAR(100),
+
+    -- Request details
+    request_method VARCHAR(10),
+    request_endpoint VARCHAR(200),
+    request_payload JSONB,
+
+    -- Response details
+    response_status_code INTEGER,
+    response_body JSONB,
+    response_time_ms INTEGER,
+
+    -- Parsed broker data
+    broker_status VARCHAR(50),
+    broker_message TEXT,
+    filled_quantity INTEGER,
+    pending_quantity INTEGER,
+    average_price DECIMAL(15, 4),
+
+    -- Result
+    is_success BOOLEAN NOT NULL,
+    error_code VARCHAR(50),
+    error_message TEXT,
+
+    -- Timing
+    event_timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    -- Tracing
+    request_id VARCHAR(64) NOT NULL,
+
+    -- Timestamps
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+
+    CONSTRAINT unique_execution_event_sequence UNIQUE (execution_id, event_sequence)
+);
+
+CREATE INDEX idx_broker_events_execution_id ON order_slice_broker_events(execution_id);
+CREATE INDEX idx_broker_events_slice_id ON order_slice_broker_events(slice_id);
+CREATE INDEX idx_broker_events_attempt_id ON order_slice_broker_events(attempt_id);
+```
+
+---
+
+## Status Field Definitions
+
+### 1. Order Slice Status (Simple Lifecycle)
+
+**Table:** `order_slices.status`
+
+| Status | Meaning | Set By | Next States |
+|--------|---------|--------|-------------|
+| `PENDING` | Created, waiting to be executed | Splitting worker | `EXECUTING`, `CANCELLED`, `SKIPPED` |
+| `EXECUTING` | Currently being executed (check executions table) | Execution worker | `COMPLETED` |
+| `COMPLETED` | Execution finished (check executions table for result) | Execution worker | *(terminal)* |
+| `CANCELLED` | Cancelled before execution | User/System | *(terminal)* |
+| `SKIPPED` | Skipped (parent order cancelled) | System | *(terminal)* |
+
+### 2. Execution Status (Detailed Execution State)
+
+**Table:** `order_slice_executions.execution_status`
+
+| Status | Meaning | Set By | Next States |
+|--------|---------|--------|-------------|
+| `CLAIMED` | Executor claimed ownership | Execution worker | `VALIDATING`, `TIMEOUT`, `ABORTED` |
+| `VALIDATING` | Validating order parameters | Execution worker | `PLACING`, `FAILED` |
+| `PLACING` | Placing order with broker | Execution worker | `PLACED`, `FAILED` |
+| `PLACED` | Order placed, monitoring | Execution worker | `POLLING`, `COMPLETED`, `FAILED` |
+| `POLLING` | Polling broker for status | Polling worker | `COMPLETED`, `FAILED`, `TIMEOUT` |
+| `COMPLETED` | Execution finished | Worker | *(terminal)* |
+| `FAILED` | Execution failed | Worker | *(terminal)* |
+| `TIMEOUT` | Ownership timeout (executor crashed) | Timeout monitor | *(terminal)* |
+| `ABORTED` | Aborted (lost ownership) | Worker | *(terminal)* |
+
+### 3. Broker Order Status (Broker's Current State)
+
+**Table:** `order_slice_executions.broker_order_status`
+
+| Status | Meaning | Zerodha Status | Next States |
+|--------|---------|----------------|-------------|
+| `PENDING` | Awaiting broker confirmation | - | `OPEN`, `REJECTED` |
+| `OPEN` | Order open at broker | `OPEN` | `PARTIALLY_FILLED`, `COMPLETE`, `CANCELLED` |
+| `PARTIALLY_FILLED` | Some shares filled | `OPEN` (with fills) | `COMPLETE`, `CANCELLED` |
+| `COMPLETE` | Fully filled | `COMPLETE` | *(terminal)* |
+| `CANCELLED` | Cancelled at broker | `CANCELLED` | *(terminal)* |
+| `REJECTED` | Rejected by broker | `REJECTED` | *(terminal)* |
+| `EXPIRED` | Order expired | `EXPIRED` | *(terminal)* |
+
+### 4. Execution Result (Final Outcome)
+
+**Table:** `order_slice_executions.execution_result`
+
+| Result | Meaning | Retry? | Alert? |
+|--------|---------|--------|--------|
+| `SUCCESS` | Fully executed | No | No |
+| `PARTIAL_SUCCESS` | Partially filled (acceptable) | No | No |
+| `BROKER_REJECTED` | Broker rejected | No | Yes |
+| `NETWORK_FAILURE` | Network/API error | Yes (max 3) | Yes (if repeated) |
+| `TIMEOUT` | Execution timed out | No | Yes |
+| `CANCELLED` | Cancelled by user/system | No | No |
+| `VALIDATION_FAILED` | Pre-execution validation failed | No | Yes |
+| `EXECUTOR_TIMEOUT` | Executor crashed/timed out | Yes | Yes |
+
+---
+
+## State Transition Examples
+
+### Example 1: Successful Market Order
+
+```
+ORDER_SLICES TABLE:
+1. Initial state (created by splitting worker)
+   id: slice_001
+   order_id: order_parent_001
+   instrument: NSE:RELIANCE
+   quantity: 100
+   scheduled_at: 2024-01-17 10:00:00
+   status: PENDING
+
+2. Execution worker picks up (scheduled_at <= NOW)
+   status: EXECUTING
+
+ORDER_SLICE_EXECUTIONS TABLE:
+3. Execution record created
+   id: exec_001
+   slice_id: slice_001
+   attempt_number: 1
+   attempt_id: attempt-550e8400-e29b-41d4-a716-446655440000
+   executor_id: exec-deployment-abc123-worker-2
+   executor_claimed_at: 2024-01-17 10:00:00
+   executor_timeout_at: 2024-01-17 10:05:00
+   last_heartbeat_at: 2024-01-17 10:00:00
+   execution_status: CLAIMED
+
+4. Worker validates and places order
+   execution_status: PLACING
+   placement_attempted_at: 2024-01-17 10:00:01
+   last_heartbeat_at: 2024-01-17 10:00:01
+   executor_timeout_at: 2024-01-17 10:05:01 (extended)
+
+5. Broker confirms and fills immediately
+   execution_status: PLACED
+   broker_order_id: 240117000123456
+   broker_order_status: COMPLETE
+   filled_quantity: 100
+   average_price: 1249.75
+   placement_confirmed_at: 2024-01-17 10:00:02
+
+6. Worker finalizes
+   execution_status: COMPLETED
+   execution_result: SUCCESS
+   completed_at: 2024-01-17 10:00:02
+
+ORDER_SLICES TABLE (updated):
+7. Slice marked complete
+   status: COMPLETED
+```
+
+### Example 2: Limit Order with Polling
+
+```
+ORDER_SLICE_EXECUTIONS TABLE:
+1. Worker places limit order
+   execution_status: PLACED
+   broker_order_id: 240117000123456
+   broker_order_status: OPEN
+   filled_quantity: 0
+   placement_confirmed_at: 2024-01-17 10:00:00
+
+2. Poll #1 (5 seconds later): Still open
+   execution_status: POLLING
+   broker_order_status: OPEN
+   filled_quantity: 0
+   last_broker_poll_at: 2024-01-17 10:00:05
+   last_heartbeat_at: 2024-01-17 10:00:05
+   executor_timeout_at: 2024-01-17 10:05:05 (extended)
+
+3. Poll #2 (10 seconds later): Partially filled
+   broker_order_status: PARTIALLY_FILLED
+   filled_quantity: 60
+   average_price: 1249.80
+   last_broker_poll_at: 2024-01-17 10:00:10
+   last_heartbeat_at: 2024-01-17 10:00:10
+   executor_timeout_at: 2024-01-17 10:05:10 (extended)
+
+4. Poll #3 (15 seconds later): Fully filled
+   broker_order_status: COMPLETE
+   filled_quantity: 100
+   average_price: 1249.75
+   last_broker_poll_at: 2024-01-17 10:00:15
+
+5. Worker finalizes
+   execution_status: COMPLETED
+   execution_result: SUCCESS
+   completed_at: 2024-01-17 10:00:15
+
+ORDER_SLICES TABLE (updated):
+6. Slice marked complete
+   status: COMPLETED
+```
+
+### Example 3: Network Failure with Retry
+
+```
+ORDER_SLICE_EXECUTIONS TABLE (Attempt 1):
+1. Worker attempts to place order
+   id: exec_001
+   slice_id: slice_001
+   attempt_number: 1
+   attempt_id: attempt-111e8400-e29b-41d4-a716-446655440001
+   executor_id: exec-deployment-abc123-worker-1
+   execution_status: PLACING
+   placement_attempted_at: 2024-01-17 10:00:01
+
+2. Network timeout (30 seconds)
+   execution_status: FAILED
+   execution_result: NETWORK_FAILURE
+   error_code: NETWORK_TIMEOUT
+   error_message: "Connection timeout after 30 seconds"
+   completed_at: 2024-01-17 10:00:31
+
+ORDER_SLICES TABLE:
+3. Slice remains in EXECUTING (will retry)
+   status: EXECUTING
+
+ORDER_SLICE_EXECUTIONS TABLE (Attempt 2):
+4. Retry: Different executor picks up
+   id: exec_002
+   slice_id: slice_001
+   attempt_number: 2
+   attempt_id: attempt-222e8400-e29b-41d4-a716-446655440002
+   executor_id: exec-deployment-xyz789-worker-0 (different executor)
+   executor_claimed_at: 2024-01-17 10:01:00
+   executor_timeout_at: 2024-01-17 10:06:00
+   execution_status: CLAIMED
+
+5. Success this time
+   execution_status: PLACING
+   placement_attempted_at: 2024-01-17 10:01:01
+
+6. Broker confirms
+   execution_status: PLACED
+   broker_order_id: 240117000123457
+   broker_order_status: COMPLETE
+   filled_quantity: 100
+   average_price: 1249.75
+   placement_confirmed_at: 2024-01-17 10:01:02
+
+7. Worker finalizes
+   execution_status: COMPLETED
+   execution_result: SUCCESS
+   completed_at: 2024-01-17 10:01:02
+
+ORDER_SLICES TABLE (updated):
+8. Slice marked complete
+   status: COMPLETED
+```
+
+### Example 4: Broker Rejection
+
+```
+ORDER_SLICE_EXECUTIONS TABLE:
+1. Worker places order
+   id: exec_001
+   slice_id: slice_001
+   attempt_number: 1
+   attempt_id: attempt-333e8400-e29b-41d4-a716-446655440003
+   executor_id: exec-deployment-abc123-worker-3
+   execution_status: PLACING
+   placement_attempted_at: 2024-01-17 10:00:01
+
+2. Broker rejects (insufficient funds)
+   execution_status: FAILED
+   broker_order_status: REJECTED
+   execution_result: BROKER_REJECTED
+   error_code: INSUFFICIENT_FUNDS
+   error_message: "Insufficient funds in account"
+   filled_quantity: 0
+   completed_at: 2024-01-17 10:00:02
+
+ORDER_SLICES TABLE (updated):
+3. Slice marked complete (no retry for broker rejection)
+   status: COMPLETED
+```
+
+### Example 5: Executor Crash and Ownership Transfer
+
+```
+ORDER_SLICE_EXECUTIONS TABLE (Attempt 1):
+1. Executor claims slice and places order
+   id: exec_001
+   slice_id: slice_001
+   attempt_number: 1
+   attempt_id: attempt-444e8400-e29b-41d4-a716-446655440004
+   executor_id: exec-deployment-abc123-worker-2
+   executor_claimed_at: 2024-01-17 10:00:00
+   executor_timeout_at: 2024-01-17 10:05:00
+   execution_status: PLACED
+   broker_order_id: 240117000123458
+   broker_order_status: OPEN
+   last_heartbeat_at: 2024-01-17 10:00:00
+
+2. Executor crashes (pod restart, OOM, etc.)
+   (No updates to database - executor is dead)
+   last_heartbeat_at: 2024-01-17 10:00:00 (stale)
+
+3. Time passes... 5 minutes later
+   executor_timeout_at: 2024-01-17 10:05:00 (now in the past)
+   Current time: 2024-01-17 10:05:30
+
+4. Timeout monitor detects expired ownership
+   Query finds: executor_timeout_at < NOW()
+
+5. Timeout monitor marks attempt as timed out
+   execution_status: TIMEOUT
+   execution_result: EXECUTOR_TIMEOUT
+   completed_at: 2024-01-17 10:05:30
+
+ORDER_SLICE_EXECUTIONS TABLE (Attempt 2):
+6. New executor claims ownership
+   id: exec_002
+   slice_id: slice_001
+   attempt_number: 2
+   attempt_id: attempt-555e8400-e29b-41d4-a716-446655440005
+   executor_id: exec-deployment-xyz789-worker-1 (different executor)
+   executor_claimed_at: 2024-01-17 10:05:30
+   executor_timeout_at: 2024-01-17 10:10:30
+   execution_status: CLAIMED
+
+7. New executor checks broker for existing order
+   Found: broker_order_id = 240117000123458
+   Status: PARTIALLY_FILLED
+   filled_quantity: 60
+
+8. New executor adopts existing order
+   broker_order_id: 240117000123458 (same as attempt 1)
+   broker_order_status: PARTIALLY_FILLED
+   filled_quantity: 60
+   execution_status: POLLING
+
+9. New executor continues polling
+   last_broker_poll_at: 2024-01-17 10:05:31
+   last_heartbeat_at: 2024-01-17 10:05:31
+   executor_timeout_at: 2024-01-17 10:10:31 (extended)
+
+10. Eventually completes
+    broker_order_status: COMPLETE
+    filled_quantity: 100
+    average_price: 1249.75
+    execution_status: COMPLETED
+    execution_result: SUCCESS
+    completed_at: 2024-01-17 10:06:00
+
+ORDER_SLICES TABLE (updated):
+11. Slice marked complete
+    status: COMPLETED
+```
+
+---
+
+## Workers
+
+### 1. Execution Worker
+
+**Purpose:** Execute order slices on Zerodha
+
+---
+
+**Executor Identity:**
+- Each executor (worker thread/process) has a unique `executor_id`
+- Format: `{pod_name}-worker-{worker_index}` (e.g., `pod-exec-1-worker-0`, `pod-exec-1-worker-1`)
+- Alternative format: `{hostname}-{process_id}-{thread_id}` (e.g., `exec-pod-abc123-12345-0`)
+- Generation strategy:
+  - Pod name from environment: `POD_NAME` (Kubernetes pod name)
+  - Worker index from worker pool index (0, 1, 2, ...)
+  - Example: If pod `exec-deployment-abc123` runs 5 workers, they get IDs:
+    - `exec-deployment-abc123-worker-0`
+    - `exec-deployment-abc123-worker-1`
+    - `exec-deployment-abc123-worker-2`
+    - `exec-deployment-abc123-worker-3`
+    - `exec-deployment-abc123-worker-4`
+
+**Logic:**
+```
+Every 5 seconds (per executor):
+  1. Find slices where:
+     - status = 'PENDING'
+     - scheduled_at <= NOW()
+     Use: FOR UPDATE SKIP LOCKED (prevent duplicates)
+     Limit: 10 slices per batch
+
+  2. For each slice:
+     a. Update slice status to 'EXECUTING'
+     b. Generate unique attempt_id (e.g., "attempt_<uuid>")
+     c. Calculate attempt_number (count existing executions + 1)
+     d. Create execution record:
+        - executor_id = <this executor's unique ID>
+        - attempt_id = <generated attempt_id>
+        - attempt_number = <calculated number>
+        - executor_claimed_at = NOW()
+        - executor_timeout_at = NOW() + 5 minutes
+        - execution_status = 'CLAIMED'
+     e. Validate order parameters
+        - Update execution_status to 'VALIDATING'
+        - Check instrument, quantity, price, etc.
+        - If validation fails: mark execution as FAILED
+     f. Verify ownership before placing order (see Ownership Verification below)
+     g. Place order with Zerodha
+        - Update execution_status to 'PLACING'
+        - Include attempt_id in broker call metadata (if supported)
+        - Record broker event (with executor_id and attempt_id)
+     h. If market order: finalize immediately
+     i. If limit order: update execution_status to 'POLLING'
+```
+
+**Ownership Verification:**
+```
+Before EVERY broker call:
+  1. Re-fetch execution record from database
+  2. Check if executor_id == <this executor's unique ID>
+  3. Check if attempt_id == <current attempt_id>
+  4. Check if executor_timeout_at > NOW()
+  5. If any check fails:
+     - Update execution_status to 'ABORTED'
+     - ABORT (another executor took over)
+  6. If all checks pass:
+     - Proceed with broker call
+     - Update last_heartbeat_at = NOW()
+     - Update executor_timeout_at = NOW() + 5 minutes (extend timeout)
+```
+
+**Concurrency:** Safe (FOR UPDATE SKIP LOCKED + ownership verification prevents duplicates)
+
+---
+
+### 2. Polling Worker
+
+**Purpose:** Poll Zerodha for limit order status
+
+**Executor Identity:**
+- Each executor has a unique `executor_id`
+- Format: `{pod_name}-worker-{worker_index}` (e.g., `pod-poll-1-worker-0`, `pod-poll-1-worker-1`)
+- Same generation strategy as Execution Worker
+
+**Logic:**
+```
+Every 5 seconds (per executor):
+  1. Find executions where:
+     - execution_status IN ('PLACED', 'POLLING')
+     - broker_order_status IN ('OPEN', 'PARTIALLY_FILLED')
+     - last_broker_poll_at < NOW() - 5 seconds (or NULL)
+     - executor_id = <this executor's unique ID> (only poll executions owned by this executor)
+
+  2. For each execution:
+     a. Verify ownership before polling (see Ownership Verification below)
+     b. Update last_heartbeat_at and executor_timeout_at
+     c. Call Zerodha to get order status
+     d. Record broker event (with executor_id and attempt_id)
+     e. Update broker_order_status and filled_quantity
+     f. Update last_broker_poll_at
+     g. Update execution_status to 'POLLING' (if not already)
+     h. If broker_order_status = COMPLETE:
+        - Update execution_status to 'COMPLETED'
+        - Update execution_result to 'SUCCESS'
+        - Update slice status to 'COMPLETED'
+     i. If broker_order_status = CANCELLED or REJECTED:
+        - Update execution_status to 'COMPLETED'
+        - Update execution_result appropriately
+        - Update slice status to 'COMPLETED'
+     j. If timeout reached (e.g., 30 minutes):
+        - Cancel order at broker
+        - Update execution_status to 'COMPLETED'
+        - Update execution_result to 'TIMEOUT'
+        - Update slice status to 'COMPLETED'
+```
+
+**Ownership Verification:**
+```
+Before EVERY broker call:
+  1. Re-fetch execution record from database
+  2. Check if executor_id == <this executor's unique ID>
+  3. Check if attempt_id == <current attempt_id>
+  4. Check if executor_timeout_at > NOW()
+  5. If any check fails:
+     - Update execution_status to 'ABORTED'
+     - ABORT (another executor took over)
+  6. If all checks pass:
+     - Proceed with broker call
+     - Update last_heartbeat_at = NOW()
+     - Update executor_timeout_at = NOW() + 5 minutes (extend timeout)
+```
+
+**Concurrency:** Safe (ownership verification + timeout mechanism prevents duplicates)
+
+---
+
+### 3. Timeout Monitor
+
+**Purpose:** Detect and recover stuck executions
+
+**Logic:**
+```
+Every 1 minute:
+  1. Find executions where:
+     - execution_status IN ('CLAIMED', 'VALIDATING', 'PLACING', 'PLACED', 'POLLING')
+     - executor_timeout_at < NOW()
+
+  2. For each timed-out execution:
+     a. Update execution_status to 'TIMEOUT'
+     b. Update execution_result to 'EXECUTOR_TIMEOUT'
+     c. Update completed_at = NOW()
+     d. Check if broker_order_id exists:
+        - If YES: Another executor can pick up and continue polling
+        - If NO: Slice can be retried with new execution
+     e. Check retry count:
+        - Count failed executions for this slice
+        - If < MAX_RETRY_ATTEMPTS (3): Allow retry
+        - If >= MAX_RETRY_ATTEMPTS: Mark slice as COMPLETED with final failure
+
+  3. For slices that can be retried:
+     a. Slice status remains 'EXECUTING'
+     b. Another executor will create new execution attempt
+
+  4. For slices that exceeded retries:
+     a. Update slice status to 'COMPLETED'
+     b. Final result determined by last execution's execution_result
+```
+
+**Concurrency:** Safe (only updates timed-out executions)
+
+---
+
+## Executor Identity and Ownership
+
+### Executor ID Generation
+
+**Purpose:** Uniquely identify each executor (worker thread/process) across all pods
+
+**Format Options:**
+
+1. **Pod + Worker Index** (Recommended)
+   - Format: `{pod_name}-worker-{worker_index}`
+   - Example: `exec-deployment-abc123-worker-0`
+   - Pros: Human-readable, stable across restarts
+   - Cons: Requires pod name from environment
+
+2. **Hostname + Process + Thread**
+   - Format: `{hostname}-{process_id}-{thread_id}`
+   - Example: `exec-pod-abc123-12345-0`
+   - Pros: Automatically unique
+   - Cons: Changes on pod restart
+
+3. **UUID-based** (Fallback)
+   - Format: `executor-{uuid}`
+   - Example: `executor-550e8400-e29b-41d4-a716-446655440000`
+   - Pros: Guaranteed unique
+   - Cons: Not human-readable, changes on restart
+
+**Implementation:**
+```python
+import os
+import uuid
+
+def generate_executor_id(worker_index: int) -> str:
+    """Generate unique executor ID for this worker."""
+    pod_name = os.getenv("POD_NAME")  # Set by Kubernetes
+
+    if pod_name:
+        # Option 1: Pod + Worker Index
+        return f"{pod_name}-worker-{worker_index}"
+    else:
+        # Option 3: UUID-based fallback
+        return f"executor-{uuid.uuid4()}"
+```
+
+### Attempt ID Generation
+
+**Purpose:** Uniquely identify each execution attempt for a slice
+
+**Format:** `attempt-{uuid}`
+
+**Example:** `attempt-550e8400-e29b-41d4-a716-446655440000`
+
+**Implementation:**
+```python
+import uuid
+
+def generate_attempt_id() -> str:
+    """Generate unique attempt ID for this execution."""
+    return f"attempt-{uuid.uuid4()}"
+```
+
+**Usage:**
+- Generated when executor claims ownership of a slice
+- Sent to broker in API call metadata (if supported)
+- Recorded in `order_slice_broker_events` table
+- Used to verify ownership before each broker call
+
+### Ownership Timeout Mechanism
+
+**Purpose:** Prevent stuck slices when executor crashes or becomes unresponsive
+
+**Timeout Duration:** 5 minutes (configurable via `EXECUTOR_TIMEOUT_MINUTES`)
+
+**How it works:**
+
+1. **Claim Ownership:**
+   - Executor sets `executor_id`, `attempt_id`, `executor_claimed_at`
+   - Sets `executor_timeout_at = NOW() + 5 minutes`
+
+2. **Extend Timeout:**
+   - Before each broker call, executor verifies ownership
+   - If valid, extends timeout: `executor_timeout_at = NOW() + 5 minutes`
+   - Updates `last_worker_heartbeat = NOW()`
+
+3. **Timeout Expiry:**
+   - If executor crashes or becomes unresponsive
+   - After 5 minutes, `executor_timeout_at < NOW()`
+   - Another executor can claim ownership
+
+4. **Ownership Transfer:**
+   - New executor finds slice with expired timeout
+   - Claims ownership with new `executor_id` and `attempt_id`
+   - Checks broker for existing order before placing new one
+
+**Configuration:**
+```python
+# Environment variables
+EXECUTOR_TIMEOUT_MINUTES=5  # Default: 5 minutes
+EXECUTOR_HEARTBEAT_INTERVAL_SECONDS=30  # How often to update heartbeat
+```
+
+---
+
+## Zerodha Integration
+
+### API Endpoints
+
+**1. Place Order**
+- **Endpoint:** `POST /orders/regular`
+- **Request:**
+  ```json
+  {
+    "tradingsymbol": "RELIANCE",
+    "exchange": "NSE",
+    "transaction_type": "BUY",
+    "quantity": 100,
+    "order_type": "LIMIT",
+    "price": 1250.00,
+    "product": "CNC",
+    "validity": "DAY"
+  }
+  ```
+- **Response:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "order_id": "240117000123456"
+    }
+  }
+  ```
+
+**2. Get Order Status**
+- **Endpoint:** `GET /orders`
+- **Response:**
+  ```json
+  {
+    "status": "success",
+    "data": [{
+      "order_id": "240117000123456",
+      "status": "COMPLETE",
+      "filled_quantity": 100,
+      "pending_quantity": 0,
+      "average_price": 1249.75
+    }]
+  }
+  ```
+
+**3. Cancel Order**
+- **Endpoint:** `DELETE /orders/regular/{order_id}`
+- **Response:**
+  ```json
+  {
+    "status": "success",
+    "data": {
+      "order_id": "240117000123456"
+    }
+  }
+  ```
+
+### Configuration
+
+```python
+# Environment variables
+ZERODHA_API_KEY=your_api_key
+ZERODHA_API_SECRET=your_api_secret
+ZERODHA_ACCESS_TOKEN=your_access_token
+
+# Executor identity (set by Kubernetes or deployment)
+POD_NAME=exec-deployment-abc123  # Kubernetes pod name
+EXECUTOR_WORKER_COUNT=5          # Number of workers per pod
+
+# Execution settings
+EXECUTION_POLL_INTERVAL_SECONDS=5
+EXECUTION_TIMEOUT_MINUTES=30
+MAX_RETRY_ATTEMPTS=3
+
+# Ownership and timeout settings
+EXECUTOR_TIMEOUT_MINUTES=5              # How long before ownership expires
+EXECUTOR_HEARTBEAT_INTERVAL_SECONDS=30  # How often to update heartbeat
+WORKER_HEARTBEAT_TIMEOUT_MINUTES=5      # Legacy (same as EXECUTOR_TIMEOUT_MINUTES)
+```
+
+---
+
+## Concurrency Safety
+
+### Prevent Duplicate Execution
+
+**Problem:** Multiple workers might pick the same slice
+
+**Solution:** Use `FOR UPDATE SKIP LOCKED`
+
+```sql
+SELECT * FROM order_slices
+WHERE schedule_status = 'READY'
+  AND placement_status = 'NOT_PLACED'
+  AND scheduled_at <= NOW()
+ORDER BY scheduled_at ASC
+LIMIT 10
+FOR UPDATE SKIP LOCKED;
+```
+
+**How it works:**
+- Worker 1 locks Slice #1
+- Worker 2 tries to lock Slice #1 → SKIP LOCKED skips it
+- Worker 2 gets Slice #2 instead
+- No duplicates!
+
+### Prevent Duplicate Orders at Broker
+
+**Problem:** Network timeout → retry → duplicate order at broker
+
+**Solution:** Check broker before placing order
+
+```python
+async def place_order_safe(slice_id: str):
+    # 1. Check if we already have a broker_order_id
+    slice = await get_slice(slice_id)
+    if slice.broker_order_id:
+        # Already placed, just poll status
+        return await poll_order_status(slice.broker_order_id)
+
+    # 2. Check broker for existing orders
+    existing_orders = await zerodha.get_orders(
+        instrument=slice.instrument,
+        side=slice.side
+    )
+    for order in existing_orders:
+        if order.quantity == slice.quantity:
+            # Found matching order, use it
+            await update_slice(slice_id, broker_order_id=order.order_id)
+            return order
+
+    # 3. Safe to place new order
+    order = await zerodha.place_order(slice)
+    await update_slice(slice_id, broker_order_id=order.order_id)
+    return order
+```
+
+---
+
+## Error Handling
+
+### Network Errors
+
+**Scenarios:**
+- Connection timeout
+- DNS resolution failure
+- SSL/TLS errors
+- HTTP 5xx errors
+
+**Handling:**
+1. Set `placement_status = 'PLACEMENT_FAILED'`
+2. Set `execution_result = 'NETWORK_FAILURE'`
+3. Release slice: `schedule_status = 'READY'`
+4. Increment `retry_count`
+5. If `retry_count < 3`: retry
+6. If `retry_count >= 3`: mark as COMPLETED with NETWORK_FAILURE
+
+### Broker Errors
+
+**Scenarios:**
+- Insufficient funds
+- Invalid instrument
+- Invalid quantity
+- Market closed
+- Rate limit exceeded
+
+**Handling:**
+1. Set `placement_status = 'REJECTED'`
+2. Set `broker_order_status = 'REJECTED'`
+3. Set `execution_result = 'BROKER_REJECTED'`
+4. Record error code and message
+5. Mark as COMPLETED (no retry)
+6. Send alert
+
+### Worker Crashes
+
+**Scenarios:**
+- Container restart
+- Out of memory
+- Unhandled exception
+
+**Handling:**
+1. Timeout monitor detects: `last_worker_heartbeat > 5 minutes ago`
+2. Check broker for existing order
+3. If order exists: continue polling
+4. If no order: release for retry
+5. Set `execution_result = 'WORKER_CRASHED'`
+6. Increment `retry_count`
+
+---
+
+## Monitoring & Observability
+
+### Metrics
+
+**Execution Metrics:**
+- `slices_executed_total` (counter) - Total slices executed
+- `slices_execution_duration_seconds` (histogram) - Time to execute
+- `slices_execution_result` (counter by result) - SUCCESS, FAILURE, etc.
+- `slices_fill_rate` (histogram) - Percentage filled
+
+**Worker Metrics:**
+- `worker_active_slices` (gauge) - Slices currently being processed
+- `worker_heartbeat_age_seconds` (gauge) - Time since last heartbeat
+- `worker_stuck_slices` (gauge) - Slices with old heartbeat
+
+**Broker Metrics:**
+- `broker_api_calls_total` (counter by endpoint) - API calls made
+- `broker_api_duration_seconds` (histogram) - API response time
+- `broker_api_errors_total` (counter by error_code) - API errors
+
+### Logs
+
+**Structured logging with:**
+- `trace_id` - From RequestContext
+- `request_id` - From RequestContext
+- `slice_id` - Order slice ID
+- `order_id` - Parent order ID
+- `broker_order_id` - Zerodha order ID
+
+**Example:**
+```json
+{
+  "timestamp": "2024-01-17T10:00:01Z",
+  "level": "INFO",
+  "message": "Placing order with Zerodha",
+  "trace_id": "tr_abc123",
+  "request_id": "req_xyz789",
+  "slice_id": "slice_001",
+  "order_id": "order_parent_001",
+  "instrument": "NSE:RELIANCE",
+  "quantity": 100,
+  "order_type": "LIMIT",
+  "price": 1250.00
+}
+```
+
+### Alerts
+
+**Critical Alerts:**
+- Slice stuck for > 10 minutes
+- Retry count exceeded (3 attempts)
+- Broker rejection rate > 5%
+- Network failure rate > 10%
+
+**Warning Alerts:**
+- Execution duration > 5 minutes
+- Partial fill rate > 20%
+- Worker heartbeat age > 2 minutes
+
+---
+
+## Performance Requirements
+
+### Latency
+
+- **Market orders:** Execute within 5 seconds of scheduled time
+- **Limit orders:** Poll every 5 seconds
+- **Worker heartbeat:** Update every 5 seconds
+
+### Throughput
+
+- **Concurrent slices:** Support 100+ slices executing simultaneously
+- **Polling rate:** 1000+ polls per minute across all workers
+- **Database queries:** < 100ms per query
+
+### Scalability
+
+- **Horizontal scaling:** Add more worker containers as needed
+- **Database connections:** Use connection pooling (max 20 per worker)
+- **Broker rate limits:** Respect Zerodha rate limits (3 requests/second)
+
+---
+
+## Testing Requirements
+
+### Unit Tests
+
+- Repository methods (create, update, query)
+- Status transition logic
+- Error handling
+- Retry logic
+
+### Integration Tests
+
+- End-to-end market order execution
+- End-to-end limit order execution with polling
+- Network failure and retry
+- Worker crash recovery
+- Broker rejection handling
+
+### Load Tests
+
+- 100 concurrent slices
+- 1000 slices per minute
+- Sustained load for 1 hour
+
+---
+
+## Security Requirements
+
+### API Credentials
+
+- Store Zerodha credentials in environment variables
+- Never log API keys or access tokens
+- Rotate access tokens regularly
+
+### Data Privacy
+
+- Never log sensitive order details (prices, quantities) in plain text
+- Encrypt broker_order_id in logs
+- Mask instrument names in public logs
+
+### Rate Limiting
+
+- Respect Zerodha rate limits (3 requests/second)
+- Implement exponential backoff on rate limit errors
+- Queue requests if rate limit is reached
+
+---
+
+## Deployment
+
+### Environment Variables
+
+```bash
+# Zerodha API
+ZERODHA_API_KEY=your_api_key
+ZERODHA_API_SECRET=your_api_secret
+ZERODHA_ACCESS_TOKEN=your_access_token
+
+# Executor identity (set by Kubernetes)
+POD_NAME=${HOSTNAME}  # Kubernetes sets this automatically
+EXECUTOR_WORKER_COUNT=5  # Number of concurrent workers per pod
+
+# Execution settings
+EXECUTION_POLL_INTERVAL_SECONDS=5
+EXECUTION_TIMEOUT_MINUTES=30
+MAX_RETRY_ATTEMPTS=3
+
+# Ownership and timeout settings
+EXECUTOR_TIMEOUT_MINUTES=5
+EXECUTOR_HEARTBEAT_INTERVAL_SECONDS=30
+
+# Database
+DATABASE_URL=postgresql://user:pass@host:5432/pulse
+DATABASE_POOL_SIZE=20
+```
+
+### Worker Containers
+
+**Execution Worker:**
+- Replicas: 3 pods
+- Workers per pod: 5 (configurable via `EXECUTOR_WORKER_COUNT`)
+- Total executors: 15 (3 pods × 5 workers)
+- CPU: 0.5 cores per pod
+- Memory: 512 MB per pod
+- Restart policy: Always
+- Environment:
+  - `POD_NAME`: Set by Kubernetes (e.g., `exec-deployment-abc123`)
+  - `EXECUTOR_WORKER_COUNT`: 5
+
+**Polling Worker:**
+- Replicas: 2 pods
+- Workers per pod: 5 (configurable via `EXECUTOR_WORKER_COUNT`)
+- Total executors: 10 (2 pods × 5 workers)
+- CPU: 0.5 cores per pod
+- Memory: 512 MB per pod
+- Restart policy: Always
+- Environment:
+  - `POD_NAME`: Set by Kubernetes (e.g., `poll-deployment-xyz789`)
+  - `EXECUTOR_WORKER_COUNT`: 5
+
+**Timeout Monitor:**
+- Replicas: 1 pod
+- Workers per pod: 1 (single-threaded)
+- CPU: 0.25 cores
+- Memory: 256 MB
+- Restart policy: Always
+
+---
+
+## Future Enhancements (Out of Scope for v1)
+
+1. **Multi-broker support** - Support Upstox, Angel One, etc.
+2. **Advanced order types** - Bracket orders, cover orders, GTT
+3. **Order modification** - Modify price/quantity after placement
+4. **Smart order routing** - Route to best broker based on liquidity
+5. **Real-time fills** - WebSocket for real-time fill updates
+6. **Partial fill strategies** - Cancel, reduce, or wait on partial fills
+
+---
+
+## Appendix
+
+### Status Field Summary
+
+| Table | Field | Purpose | Values |
+|-------|-------|---------|--------|
+| `order_slices` | `status` | Simple lifecycle | PENDING, EXECUTING, COMPLETED, CANCELLED, SKIPPED |
+| `order_slice_executions` | `execution_status` | Detailed execution state | CLAIMED, VALIDATING, PLACING, PLACED, POLLING, COMPLETED, FAILED, TIMEOUT, ABORTED |
+| `order_slice_executions` | `broker_order_status` | Broker's current state | PENDING, OPEN, PARTIALLY_FILLED, COMPLETE, CANCELLED, REJECTED, EXPIRED |
+| `order_slice_executions` | `execution_result` | Final outcome | SUCCESS, PARTIAL_SUCCESS, BROKER_REJECTED, NETWORK_FAILURE, TIMEOUT, CANCELLED, VALIDATION_FAILED, EXECUTOR_TIMEOUT |
+
+### Query Patterns
+
+**Get slices ready to execute:**
+```sql
+SELECT * FROM order_slices
+WHERE status = 'PENDING'
+  AND scheduled_at <= NOW()
+ORDER BY scheduled_at ASC
+LIMIT 10
+FOR UPDATE SKIP LOCKED;
+```
+
+**Get executions needing poll:**
+```sql
+SELECT e.*
+FROM order_slice_executions e
+WHERE e.execution_status IN ('PLACED', 'POLLING')
+  AND e.broker_order_status IN ('OPEN', 'PARTIALLY_FILLED')
+  AND e.executor_id = $1  -- This executor's ID
+  AND (e.last_broker_poll_at IS NULL OR e.last_broker_poll_at < NOW() - INTERVAL '5 seconds')
+ORDER BY e.last_broker_poll_at ASC NULLS FIRST;
+```
+
+**Detect timed-out executions:**
+```sql
+SELECT * FROM order_slice_executions
+WHERE execution_status IN ('CLAIMED', 'VALIDATING', 'PLACING', 'PLACED', 'POLLING')
+  AND executor_timeout_at < NOW();
+```
+
+**Count failed attempts for a slice:**
+```sql
+SELECT COUNT(*)
+FROM order_slice_executions
+WHERE slice_id = $1
+  AND execution_result IN ('NETWORK_FAILURE', 'EXECUTOR_TIMEOUT');
+```
+
+**Get latest execution for a slice:**
+```sql
+SELECT * FROM order_slice_executions
+WHERE slice_id = $1
+ORDER BY attempt_number DESC
+LIMIT 1;
+```
+
+**Get all executions for a slice (audit trail):**
+```sql
+SELECT * FROM order_slice_executions
+WHERE slice_id = $1
+ORDER BY attempt_number ASC;
+```
+
+---
+
+## Glossary
+
+- **Order Slice:** A portion of a split order to be executed at a specific time (definition only, stored in `order_slices` table)
+- **Execution:** A single attempt to execute an order slice (stored in `order_slice_executions` table)
+- **Executor:** A worker thread/process that executes order slices (identified by unique `executor_id`)
+- **Executor ID:** Unique identifier for each executor (format: `{pod_name}-worker-{index}`)
+- **Attempt ID:** Unique identifier for each execution attempt (format: `attempt-{uuid}`)
+- **Attempt Number:** Sequential number of execution attempts for a slice (1, 2, 3, ...)
+- **Execution Worker:** Worker that places orders with broker
+- **Polling Worker:** Worker that polls broker for order status
+- **Timeout Monitor:** Worker that detects and recovers timed-out executions
+- **Broker Order ID:** Unique identifier assigned by broker (Zerodha)
+- **Fill:** Execution of shares (partial or full)
+- **Market Order:** Order executed immediately at current market price
+- **Limit Order:** Order executed only at specified price or better
+- **Heartbeat:** Periodic update to indicate executor is alive
+- **Ownership:** Executor's claim on an execution (expires after timeout)
+- **Ownership Timeout:** Duration after which ownership expires (default: 5 minutes)
+
+

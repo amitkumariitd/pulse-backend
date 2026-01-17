@@ -274,7 +274,8 @@ Use Python `contextvars.ContextVar` for async-safe storage.
 
 ### 3. Logger
 - Auto-inject context into all log entries
-- Filter forbidden keys
+- All fields from `RequestContext` are automatically included: `trace_id`, `trace_source`, `request_id`, `request_source`, `span_source`
+- Filter forbidden keys (passwords, tokens, etc.)
 
 ### 4. HTTP Client
 - Auto-add context headers to outgoing requests

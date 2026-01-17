@@ -44,15 +44,18 @@ Every log entry MUST include:
 
 ## Tracing Fields
 
-Include when available:
+Include when available (automatically added when `RequestContext` is passed to logger):
 
 | Field | Type | Description |
 |-------|------|-------------|
 | `trace_id` | string | Global trace identifier (starts with `t-`) |
 | `trace_source` | string | Origin of the trace (format: `SERVICE:endpoint`) |
 | `request_id` | string | Request identifier (starts with `r-`) |
-| `request_source` | string | Origin of the request (format: `SERVICE:endpoint`) |
+| `request_source` | string | Current service and endpoint (format: `SERVICE:endpoint`) |
+| `span_source` | string | Service call path (e.g., `GAPI:POST/api/orders->PULSE:POST/internal/orders`) |
 | `order_id` | string | Order identifier (starts with `o-`), include when applicable |
+
+**Note:** When you pass `RequestContext` to the logger, all these fields are automatically included in the log output.
 
 ---
 
@@ -154,6 +157,30 @@ The `data` field is optional and contains structured context:
 - Tracing fields should be injected automatically from context
 - All timestamps in UTC
 - One log entry per line (newline-delimited JSON)
+
+### How to Use the Logger
+
+```python
+from shared.observability.logger import get_logger
+from shared.observability.context import RequestContext
+
+logger = get_logger("pulse.workers.splitting")
+
+async def process_order(order_data: dict, ctx: RequestContext):
+    # Pass ctx to logger - all tracing fields automatically included
+    logger.info("Processing order", ctx, data={"instrument": order_data["instrument"]})
+
+    # Output will include:
+    # - trace_id, trace_source (from ctx)
+    # - request_id, request_source (from ctx)
+    # - span_source (from ctx)
+    # - Plus any additional data you provide
+```
+
+**Key Points:**
+- Always pass `RequestContext` as the second parameter to logger methods
+- All tracing fields (`trace_id`, `trace_source`, `request_id`, `request_source`, `span_source`) are automatically extracted from the context
+- No need to manually add these fields to logs
 
 ---
 

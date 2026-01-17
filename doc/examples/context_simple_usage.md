@@ -159,12 +159,33 @@ from shared.observability.logger import get_logger
 logger = get_logger("pulse")
 
 async def process_order(order_data: dict, ctx: RequestContext):
-    # Pass context to logger - trace_id, request_id, etc. are automatically included
+    # Pass context to logger - ALL tracing fields are automatically included
     logger.info("Starting order processing", ctx)
+
+    # Log output will include:
+    # - trace_id, trace_source
+    # - request_id, request_source
+    # - span_source
+    # All extracted automatically from ctx!
 
     # ... business logic ...
 
-    logger.info("Order processing complete", ctx)
+    logger.info("Order processing complete", ctx, data={"status": "success"})
+```
+
+**What gets logged:**
+```json
+{
+  "timestamp": "2025-12-25T10:30:45.123Z",
+  "level": "INFO",
+  "logger": "pulse",
+  "trace_id": "t1234567890abcdef1234",
+  "trace_source": "GAPI:POST/api/orders",
+  "request_id": "r1234567890abcdef1234",
+  "request_source": "PULSE:POST/internal/orders",
+  "span_source": "GAPI:POST/api/orders->PULSE:POST/internal/orders",
+  "message": "Starting order processing"
+}
 ```
 
 See `doc/guides/logging.md` for log format details.

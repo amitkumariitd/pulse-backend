@@ -245,7 +245,44 @@ This enables Storage → trace → log correlation.
 
 ## Logging
 
-All logs should include tracing info.
+All logs should include tracing info. When you pass `RequestContext` to the logger, the following fields are automatically included:
+
+- `trace_id` - Global trace identifier
+- `trace_source` - Origin of the trace
+- `request_id` - Request identifier
+- `request_source` - Current service and endpoint
+- `span_source` - Service call path (for distributed tracing)
+
+**Example:**
+```python
+from shared.observability.logger import get_logger
+
+logger = get_logger("pulse")
+
+async def process_order(order_data: dict, ctx: RequestContext):
+    # All tracing fields automatically included in logs
+    logger.info("Processing order", ctx, data={"instrument": "NSE:RELIANCE"})
+```
+
+**Log output:**
+```json
+{
+  "timestamp": "2025-12-25T10:30:45.123Z",
+  "level": "INFO",
+  "logger": "pulse",
+  "trace_id": "t1735228800a1b2c3d4e5f6",
+  "trace_source": "GAPI:POST/api/orders",
+  "request_id": "r1735228800f6e5d4c3b2a1",
+  "request_source": "PULSE:POST/internal/orders",
+  "span_source": "GAPI:POST/api/orders->PULSE:POST/internal/orders",
+  "message": "Processing order",
+  "data": {
+    "instrument": "NSE:RELIANCE"
+  }
+}
+```
+
+See `doc/guides/logging.md` for complete logging standard.
 
 
 ## Technology Standard

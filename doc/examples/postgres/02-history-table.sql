@@ -22,7 +22,6 @@ CREATE TABLE orders_history (
     -- Tracing (from main table)
     trace_id VARCHAR(64) NOT NULL,
     request_id VARCHAR(64) NOT NULL,
-    span_id VARCHAR(16) NOT NULL,
 
     -- Timestamps (from main table)
     created_at TIMESTAMPTZ NOT NULL,
@@ -46,13 +45,13 @@ BEGIN
         INSERT INTO orders_history (
             operation, changed_at,
             id, instrument, quantity, side, order_type, status,
-            trace_id, request_id, span_id,
+            trace_id, request_id,
             created_at, updated_at
         )
         VALUES (
             'DELETE', NOW(),
             OLD.id, OLD.instrument, OLD.quantity, OLD.side, OLD.order_type, OLD.status,
-            OLD.trace_id, OLD.request_id, OLD.span_id,
+            OLD.trace_id, OLD.request_id,
             OLD.created_at, OLD.updated_at
         );
         RETURN OLD;
@@ -60,13 +59,13 @@ BEGIN
         INSERT INTO orders_history (
             operation, changed_at,
             id, instrument, quantity, side, order_type, status,
-            trace_id, request_id, span_id,
+            trace_id, request_id,
             created_at, updated_at
         )
         VALUES (
             'UPDATE', NOW(),
             OLD.id, OLD.instrument, OLD.quantity, OLD.side, OLD.order_type, OLD.status,
-            OLD.trace_id, OLD.request_id, OLD.span_id,
+            OLD.trace_id, OLD.request_id,
             OLD.created_at, OLD.updated_at
         );
         RETURN NEW;
@@ -74,13 +73,13 @@ BEGIN
         INSERT INTO orders_history (
             operation, changed_at,
             id, instrument, quantity, side, order_type, status,
-            trace_id, request_id, span_id,
+            trace_id, request_id,
             created_at, updated_at
         )
         VALUES (
             'INSERT', NOW(),
             NEW.id, NEW.instrument, NEW.quantity, NEW.side, NEW.order_type, NEW.status,
-            NEW.trace_id, NEW.request_id, NEW.span_id,
+            NEW.trace_id, NEW.request_id,
             NEW.created_at, NEW.updated_at
         );
         RETURN NEW;

@@ -52,10 +52,10 @@ class OrderRepository(BaseRepository):
                 """
                 INSERT INTO orders (
                     id, instrument, quantity, side, order_type, status,
-                    trace_id, request_id, span_id,
+                    trace_id, request_id,
                     created_at, updated_at
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW(), NOW())
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW(), NOW())
                 RETURNING *
                 """,
                 order_data['id'],
@@ -65,8 +65,7 @@ class OrderRepository(BaseRepository):
                 order_data['order_type'],
                 'PENDING',
                 ctx.trace_id,          # From RequestContext
-                ctx.request_id,        # From RequestContext
-                ctx.span_id            # From RequestContext
+                ctx.request_id         # From RequestContext
             )
             
             logger.info("Order created", ctx, data={"order_id": result['id']})

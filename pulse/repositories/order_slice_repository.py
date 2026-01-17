@@ -66,7 +66,7 @@ class OrderSliceRepository(BaseRepository):
                 side,
                 quantity,
                 sequence_number,
-                'SCHEDULED',  # Initial status
+                'PENDING',  # Initial status
                 scheduled_at,
                 ctx.trace_id,           # Origin trace ID
                 ctx.trace_source,       # Origin trace source
@@ -133,7 +133,7 @@ class OrderSliceRepository(BaseRepository):
                         slice_data['side'],
                         slice_data['quantity'],
                         slice_data['sequence_number'],
-                        'SCHEDULED',
+                        'PENDING',
                         slice_data['scheduled_at'],
                         ctx.trace_id,           # Origin trace ID
                         ctx.trace_source,       # Origin trace source

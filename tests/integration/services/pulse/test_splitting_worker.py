@@ -83,7 +83,7 @@ async def test_process_order_creates_slices():
             assert slice_record['instrument'] == 'NSE:RELIANCE'
             assert slice_record['side'] == 'BUY'
             assert slice_record['sequence_number'] == i + 1
-            assert slice_record['status'] == 'SCHEDULED'
+            assert slice_record['status'] == 'PENDING'
             assert slice_record['scheduled_at'] is not None
 
     finally:

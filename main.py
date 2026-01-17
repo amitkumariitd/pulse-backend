@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from gapi.main import app as gapi_app
 from pulse.main import app as pulse_app, lifespan as pulse_lifespan, get_db_pool
 from pulse.workers.splitting_worker import run_splitting_worker
+from pulse.workers.execution_worker import run_execution_worker
 from pulse.workers.timeout_monitor import run_timeout_monitor
 from shared.observability.logger import get_logger
 from shared.observability.access_log_middleware import AccessLogMiddleware
@@ -35,6 +36,16 @@ async def lifespan(app: FastAPI):
             )
         )
 
+        # Start execution worker
+        execution_task = asyncio.create_task(
+            run_execution_worker(
+                pool=db_pool,
+                poll_interval_seconds=5,
+                batch_size=10,
+                timeout_minutes=5
+            )
+        )
+
         # Start timeout monitor
         monitor_task = asyncio.create_task(
             run_timeout_monitor(
@@ -46,6 +57,7 @@ async def lifespan(app: FastAPI):
 
         logger.info("Background workers started", data={
             "splitting_worker": "running",
+            "execution_worker": "running",
             "timeout_monitor": "running"
         })
 
@@ -56,12 +68,18 @@ async def lifespan(app: FastAPI):
             logger.info("Shutting down background workers")
 
             splitting_task.cancel()
+            execution_task.cancel()
             monitor_task.cancel()
 
             try:
                 await splitting_task
             except asyncio.CancelledError:
                 logger.info("Splitting worker task cancelled")
+
+            try:
+                await execution_task
+            except asyncio.CancelledError:
+                logger.info("Execution worker task cancelled")
 
             try:
                 await monitor_task

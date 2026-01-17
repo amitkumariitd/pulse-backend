@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import asyncpg
 from typing import Optional, Dict, Any
-from datetime import datetime
+from datetime import datetime, timezone
 from decimal import Decimal
 
 from shared.database.base_repository import BaseRepository
@@ -85,7 +85,7 @@ class BrokerEventRepository(BaseRepository):
         """
         conn = await self.get_connection()
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             
             result = await conn.fetchrow(
                 """

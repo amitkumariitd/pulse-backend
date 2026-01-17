@@ -89,7 +89,7 @@ async def test_full_flow_acceptance_to_splitting():
         for slice_record in slices:
             scheduled_at = slice_record['scheduled_at']
             assert parent_created_at <= scheduled_at <= time_window_end
-            assert slice_record['status'] == 'SCHEDULED'
+            assert slice_record['status'] == 'PENDING'
 
     finally:
         await close_pool(pool)

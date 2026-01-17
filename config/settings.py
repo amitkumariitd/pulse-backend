@@ -34,6 +34,10 @@ class Settings(BaseSettings):
     gapi_base_url: str | None = None
     pulse_api_base_url: str | None = None
 
+    # --- Broker Integration (optional) ---
+    zerodha_api_key: str | None = None
+    zerodha_access_token: str | None = None
+
     model_config = SettingsConfigDict(
         # Do NOT automatically load .env files
         # Use environment variables only (set explicitly or via dotenv CLI)

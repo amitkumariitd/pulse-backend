@@ -7,7 +7,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
 import asyncpg
 from typing import Optional, List
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
 from shared.database.base_repository import BaseRepository
@@ -51,7 +51,7 @@ class ExecutionRepository(BaseRepository):
         """
         conn = await self.get_connection()
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             timeout_at = now + timedelta(minutes=timeout_minutes)
             
             result = await conn.fetchrow(
@@ -124,8 +124,8 @@ class ExecutionRepository(BaseRepository):
         """
         conn = await self.get_connection()
         try:
-            now = datetime.utcnow()
-            
+            now = datetime.now(timezone.utc)
+
             # Build dynamic update query
             updates = ["execution_status = $2", "updated_at = $3"]
             params = [execution_id, execution_status, now]

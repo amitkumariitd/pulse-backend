@@ -34,15 +34,18 @@ def upgrade() -> None:
                 CHECK (order_queue_status IN ('PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED', 'SKIPPED')),
             order_queue_skip_reason TEXT,
             split_completed_at TIMESTAMPTZ,
-            trace_id VARCHAR(64) NOT NULL,
+            origin_trace_id VARCHAR(64) NOT NULL,
+            origin_trace_source VARCHAR(100) NOT NULL,
+            origin_request_id VARCHAR(64) NOT NULL,
+            origin_request_source VARCHAR(100) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            trace_source VARCHAR(50) NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
         )
     """)
     
     # Create indexes
+    op.execute("CREATE INDEX idx_orders_origin_trace_id ON orders(origin_trace_id)")
     op.execute("CREATE INDEX idx_orders_order_queue_status ON orders(order_queue_status)")
     op.execute("""
         CREATE INDEX idx_orders_status_created
@@ -67,9 +70,11 @@ def upgrade() -> None:
             order_queue_status VARCHAR(20) NOT NULL,
             order_queue_skip_reason TEXT,
             split_completed_at TIMESTAMPTZ,
-            trace_id VARCHAR(64) NOT NULL,
+            origin_trace_id VARCHAR(64) NOT NULL,
+            origin_trace_source VARCHAR(100) NOT NULL,
+            origin_request_id VARCHAR(64) NOT NULL,
+            origin_request_source VARCHAR(100) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            trace_source VARCHAR(50) NOT NULL,
             created_at TIMESTAMPTZ NOT NULL,
             updated_at TIMESTAMPTZ NOT NULL
         )
@@ -88,13 +93,13 @@ def upgrade() -> None:
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
                     order_queue_skip_reason, split_completed_at,
-                    trace_id, request_id, trace_source,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 ) VALUES (
                     'DELETE', OLD.id, OLD.instrument, OLD.side, OLD.total_quantity, OLD.num_splits,
                     OLD.duration_minutes, OLD.randomize, OLD.order_unique_key, OLD.order_queue_status,
                     OLD.order_queue_skip_reason, OLD.split_completed_at,
-                    OLD.trace_id, OLD.request_id, OLD.trace_source,
+                    OLD.origin_trace_id, OLD.origin_trace_source, OLD.origin_request_id, OLD.origin_request_source, OLD.request_id,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN OLD;
@@ -103,13 +108,13 @@ def upgrade() -> None:
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
                     order_queue_skip_reason, split_completed_at,
-                    trace_id, request_id, trace_source,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 ) VALUES (
                     'UPDATE', OLD.id, OLD.instrument, OLD.side, OLD.total_quantity, OLD.num_splits,
                     OLD.duration_minutes, OLD.randomize, OLD.order_unique_key, OLD.order_queue_status,
                     OLD.order_queue_skip_reason, OLD.split_completed_at,
-                    OLD.trace_id, OLD.request_id, OLD.trace_source,
+                    OLD.origin_trace_id, OLD.origin_trace_source, OLD.origin_request_id, OLD.origin_request_source, OLD.request_id,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN NEW;
@@ -118,13 +123,13 @@ def upgrade() -> None:
                     operation, id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key, order_queue_status,
                     order_queue_skip_reason, split_completed_at,
-                    trace_id, request_id, trace_source,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 ) VALUES (
                     'INSERT', NEW.id, NEW.instrument, NEW.side, NEW.total_quantity, NEW.num_splits,
                     NEW.duration_minutes, NEW.randomize, NEW.order_unique_key, NEW.order_queue_status,
                     NEW.order_queue_skip_reason, NEW.split_completed_at,
-                    NEW.trace_id, NEW.request_id, NEW.trace_source,
+                    NEW.origin_trace_id, NEW.origin_trace_source, NEW.origin_request_id, NEW.origin_request_source, NEW.request_id,
                     NEW.created_at, NEW.updated_at
                 );
                 RETURN NEW;

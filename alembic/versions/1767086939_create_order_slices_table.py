@@ -31,9 +31,11 @@ def upgrade() -> None:
             status VARCHAR(20) NOT NULL DEFAULT 'SCHEDULED'
                 CHECK (status IN ('SCHEDULED', 'READY', 'EXECUTING', 'EXECUTED', 'FAILED', 'SKIPPED')),
             scheduled_at TIMESTAMPTZ NOT NULL,
-            trace_id VARCHAR(64) NOT NULL,
+            origin_trace_id VARCHAR(64) NOT NULL,
+            origin_trace_source VARCHAR(100) NOT NULL,
+            origin_request_id VARCHAR(64) NOT NULL,
+            origin_request_source VARCHAR(100) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            trace_source VARCHAR(50) NOT NULL,
             created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
             CONSTRAINT unique_order_sequence UNIQUE (order_id, sequence_number)
@@ -41,6 +43,7 @@ def upgrade() -> None:
     """)
     
     # Create indexes
+    op.execute("CREATE INDEX idx_order_slices_origin_trace_id ON order_slices(origin_trace_id)")
     op.execute("CREATE INDEX idx_order_slices_order_id ON order_slices(order_id)")
     op.execute("""
         CREATE INDEX idx_order_slices_scheduled
@@ -62,9 +65,11 @@ def upgrade() -> None:
             sequence_number INTEGER NOT NULL,
             status VARCHAR(20) NOT NULL,
             scheduled_at TIMESTAMPTZ NOT NULL,
-            trace_id VARCHAR(64) NOT NULL,
+            origin_trace_id VARCHAR(64) NOT NULL,
+            origin_trace_source VARCHAR(100) NOT NULL,
+            origin_request_id VARCHAR(64) NOT NULL,
+            origin_request_source VARCHAR(100) NOT NULL,
             request_id VARCHAR(64) NOT NULL,
-            trace_source VARCHAR(50) NOT NULL,
             created_at TIMESTAMPTZ NOT NULL,
             updated_at TIMESTAMPTZ NOT NULL
         )
@@ -83,12 +88,12 @@ def upgrade() -> None:
                 INSERT INTO order_slices_history (
                     operation, id, order_id, instrument, side, quantity,
                     sequence_number, status, scheduled_at,
-                    trace_id, request_id, trace_source,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 ) VALUES (
                     'DELETE', OLD.id, OLD.order_id, OLD.instrument, OLD.side, OLD.quantity,
                     OLD.sequence_number, OLD.status, OLD.scheduled_at,
-                    OLD.trace_id, OLD.request_id, OLD.trace_source,
+                    OLD.origin_trace_id, OLD.origin_trace_source, OLD.origin_request_id, OLD.origin_request_source, OLD.request_id,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN OLD;
@@ -96,12 +101,12 @@ def upgrade() -> None:
                 INSERT INTO order_slices_history (
                     operation, id, order_id, instrument, side, quantity,
                     sequence_number, status, scheduled_at,
-                    trace_id, request_id, trace_source,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 ) VALUES (
                     'UPDATE', OLD.id, OLD.order_id, OLD.instrument, OLD.side, OLD.quantity,
                     OLD.sequence_number, OLD.status, OLD.scheduled_at,
-                    OLD.trace_id, OLD.request_id, OLD.trace_source,
+                    OLD.origin_trace_id, OLD.origin_trace_source, OLD.origin_request_id, OLD.origin_request_source, OLD.request_id,
                     OLD.created_at, OLD.updated_at
                 );
                 RETURN NEW;
@@ -109,12 +114,12 @@ def upgrade() -> None:
                 INSERT INTO order_slices_history (
                     operation, id, order_id, instrument, side, quantity,
                     sequence_number, status, scheduled_at,
-                    trace_id, request_id, trace_source,
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id,
                     created_at, updated_at
                 ) VALUES (
                     'INSERT', NEW.id, NEW.order_id, NEW.instrument, NEW.side, NEW.quantity,
                     NEW.sequence_number, NEW.status, NEW.scheduled_at,
-                    NEW.trace_id, NEW.request_id, NEW.trace_source,
+                    NEW.origin_trace_id, NEW.origin_trace_source, NEW.origin_request_id, NEW.origin_request_source, NEW.request_id,
                     NEW.created_at, NEW.updated_at
                 );
                 RETURN NEW;

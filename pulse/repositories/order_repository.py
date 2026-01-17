@@ -48,15 +48,19 @@ class OrderRepository(BaseRepository):
         """
         conn = await self.get_connection()
         try:
+            # Generate new request_id for async workers
+            from pulse.utils.id_generator import generate_request_id
+            async_request_id = generate_request_id()
+
             result = await conn.fetchrow(
                 """
                 INSERT INTO orders (
                     id, instrument, side, total_quantity, num_splits,
                     duration_minutes, randomize, order_unique_key,
                     order_queue_status,
-                    trace_id, request_id, trace_source
+                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14)
                 RETURNING *
                 """,
                 order_id,
@@ -68,9 +72,11 @@ class OrderRepository(BaseRepository):
                 randomize,
                 order_unique_key,
                 'PENDING',  # Initial status
-                ctx.trace_id,
-                ctx.request_id,
-                ctx.trace_source
+                ctx.trace_id,           # Origin trace ID
+                ctx.trace_source,       # Origin trace source
+                ctx.request_id,         # Origin request ID
+                ctx.request_source,     # Origin request source
+                async_request_id        # New request_id for async workers
             )
             
             logger.info("Order created", ctx, data={"order_id": order_id})

@@ -188,7 +188,7 @@ async def test_time_window_constraint_enforcement():
 
 @pytest.mark.asyncio
 async def test_trace_id_propagation_from_order_to_slices():
-    """Test that order slices inherit the parent order's trace_id."""
+    """Test that order slices inherit the parent order's origin trace context."""
     settings = get_settings()
     pool = await create_pool(settings)
 
@@ -197,11 +197,13 @@ async def test_trace_id_propagation_from_order_to_slices():
         order_repo = OrderRepository(pool)
         slice_repo = OrderSliceRepository(pool)
 
-        # Create order with specific trace_id
+        # Create order with specific trace context
         order_id = f"test_trace_{datetime.now().timestamp()}"
         order_unique_key = f"ouk_trace_{datetime.now().timestamp()}"
-        parent_trace_id = ctx.trace_id
-        parent_trace_source = ctx.trace_source
+        origin_trace_id = ctx.trace_id
+        origin_trace_source = ctx.trace_source
+        origin_request_id = ctx.request_id
+        origin_request_source = ctx.request_source
 
         created_order = await order_repo.create_order(
             order_id=order_id,
@@ -215,9 +217,13 @@ async def test_trace_id_propagation_from_order_to_slices():
             ctx=ctx
         )
 
-        # Verify parent order has the expected trace_id
-        assert created_order['trace_id'] == parent_trace_id
-        assert created_order['trace_source'] == parent_trace_source
+        # Verify parent order has the expected origin context
+        assert created_order['origin_trace_id'] == origin_trace_id
+        assert created_order['origin_trace_source'] == origin_trace_source
+        assert created_order['origin_request_id'] == origin_request_id
+        assert created_order['origin_request_source'] == origin_request_source
+        # request_id should be different (generated for async workers)
+        assert created_order['request_id'] != origin_request_id
 
         # Process the order (split into slices)
         result = await process_single_order(
@@ -232,13 +238,19 @@ async def test_trace_id_propagation_from_order_to_slices():
         # Get all slices for this order
         slices = await slice_repo.get_slices_by_order_id(order_id, ctx)
 
-        # Verify all slices have the same trace_id as parent order
+        # Verify all slices have the same origin context as parent order
         assert len(slices) == 5
         for slice_record in slices:
-            assert slice_record['trace_id'] == parent_trace_id, \
-                f"Slice {slice_record['id']} has trace_id {slice_record['trace_id']}, expected {parent_trace_id}"
-            assert slice_record['trace_source'] == parent_trace_source, \
-                f"Slice {slice_record['id']} has trace_source {slice_record['trace_source']}, expected {parent_trace_source}"
+            assert slice_record['origin_trace_id'] == origin_trace_id, \
+                f"Slice {slice_record['id']} has origin_trace_id {slice_record['origin_trace_id']}, expected {origin_trace_id}"
+            assert slice_record['origin_trace_source'] == origin_trace_source, \
+                f"Slice {slice_record['id']} has origin_trace_source {slice_record['origin_trace_source']}, expected {origin_trace_source}"
+            assert slice_record['origin_request_id'] == origin_request_id, \
+                f"Slice {slice_record['id']} has origin_request_id {slice_record['origin_request_id']}, expected {origin_request_id}"
+            assert slice_record['origin_request_source'] == origin_request_source, \
+                f"Slice {slice_record['id']} has origin_request_source {slice_record['origin_request_source']}, expected {origin_request_source}"
+            # Each slice should have its own request_id for async workers
+            assert slice_record['request_id'] != origin_request_id
 
     finally:
         await close_pool(pool)

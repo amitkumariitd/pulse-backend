@@ -37,6 +37,8 @@ class Settings(BaseSettings):
     # --- Broker Integration (optional) ---
     zerodha_api_key: str | None = None
     zerodha_access_token: str | None = None
+    zerodha_use_mock: bool = True  # Use mock mode by default (set to False for production)
+    zerodha_mock_scenario: str = "success"  # Mock scenario: success, partial_fill, rejection, network_error, timeout
 
     model_config = SettingsConfigDict(
         # Do NOT automatically load .env files

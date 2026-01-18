@@ -796,11 +796,12 @@ async def run_execution_worker(
     exec_repo = ExecutionRepository(pool)
     event_repo = BrokerEventRepository(pool)
 
-    # Initialize Zerodha client (using mock for now)
+    # Initialize Zerodha client
     zerodha_client = ZerodhaClient(
-        api_key=settings.zerodha_api_key if hasattr(settings, 'zerodha_api_key') else "mock_key",
-        access_token=settings.zerodha_access_token if hasattr(settings, 'zerodha_access_token') else None,
-        use_mock=True  # TODO: Set to False for production
+        api_key=settings.zerodha_api_key or "mock_key",
+        access_token=settings.zerodha_access_token,
+        use_mock=settings.zerodha_use_mock,
+        mock_scenario=settings.zerodha_mock_scenario
     )
 
     while True:

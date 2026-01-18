@@ -90,7 +90,8 @@ class ZerodhaClient:
         self,
         api_key: str,
         access_token: Optional[str] = None,
-        use_mock: bool = True
+        use_mock: bool = True,
+        mock_scenario: str = "success"
     ):
         """Initialize Zerodha client.
 
@@ -98,10 +99,18 @@ class ZerodhaClient:
             api_key: Zerodha API key
             access_token: Access token (get from login flow)
             use_mock: If True, use mock implementation (for dev/test)
+            mock_scenario: Mock behavior scenario:
+                - "success": Orders complete successfully
+                - "partial_fill": Limit orders partially fill
+                - "rejection": Orders get rejected by broker
+                - "network_error": Simulate network failures
+                - "timeout": Orders timeout without filling
         """
         self.api_key = api_key
         self.access_token = access_token
         self.use_mock = use_mock
+        self.mock_scenario = mock_scenario
+        self._mock_order_states = {}  # Track mock order states for polling
 
         if not use_mock:
             # TODO: Uncomment for production
@@ -141,22 +150,66 @@ class ZerodhaClient:
             import uuid
             broker_order_id = f"ZH{datetime.now().strftime('%y%m%d')}{uuid.uuid4().hex[:8]}"
 
-            # Mock: Market orders fill immediately, limit orders stay open
-            if order_request.order_type == "MARKET":
+            # Simulate different scenarios based on mock_scenario
+            if self.mock_scenario == "rejection":
+                # Simulate broker rejection
+                raise Exception("INSUFFICIENT_FUNDS: Insufficient funds in account")
+
+            elif self.mock_scenario == "network_error":
+                # Simulate network error
+                raise Exception("NETWORK_TIMEOUT: Connection timeout after 30 seconds")
+
+            elif self.mock_scenario == "partial_fill":
+                # Limit orders partially fill
+                status = "OPEN"
+                filled_quantity = order_request.quantity // 2  # 50% filled
+                pending_quantity = order_request.quantity - filled_quantity
+                average_price = Decimal("1250.00") if filled_quantity > 0 else None
+
+                # Store state for polling
+                self._mock_order_states[broker_order_id] = {
+                    "status": "OPEN",
+                    "filled_quantity": filled_quantity,
+                    "pending_quantity": pending_quantity,
+                    "average_price": average_price,
+                    "poll_count": 0
+                }
+
+            elif order_request.order_type == "MARKET":
+                # Market orders fill immediately
                 status = "COMPLETE"
                 filled_quantity = order_request.quantity
                 pending_quantity = 0
-                average_price = Decimal("1250.00")  # Mock price
+                average_price = Decimal("1250.00")
+
+                self._mock_order_states[broker_order_id] = {
+                    "status": "COMPLETE",
+                    "filled_quantity": filled_quantity,
+                    "pending_quantity": 0,
+                    "average_price": average_price
+                }
             else:
+                # Limit orders stay open initially
                 status = "OPEN"
                 filled_quantity = 0
                 pending_quantity = order_request.quantity
                 average_price = None
 
+                # Store state for polling (will complete after a few polls)
+                self._mock_order_states[broker_order_id] = {
+                    "status": "OPEN",
+                    "filled_quantity": 0,
+                    "pending_quantity": order_request.quantity,
+                    "average_price": None,
+                    "poll_count": 0,
+                    "target_quantity": order_request.quantity
+                }
+
             logger.info("Order placed with Zerodha (MOCK)", ctx, data={
                 "broker_order_id": broker_order_id,
                 "status": status,
-                "filled_quantity": filled_quantity
+                "filled_quantity": filled_quantity,
+                "mock_scenario": self.mock_scenario
             })
         else:
             # TODO: Real KiteConnect implementation
@@ -218,28 +271,57 @@ class ZerodhaClient:
             "broker_order_id": broker_order_id
         })
 
+        if self.use_mock:
+            # Get stored state or default to completed
+            if broker_order_id in self._mock_order_states:
+                state = self._mock_order_states[broker_order_id]
+                state["poll_count"] = state.get("poll_count", 0) + 1
+
+                # Simulate progressive filling for limit orders
+                if state["status"] == "OPEN" and "target_quantity" in state:
+                    # Complete after 3 polls (simulates ~15 seconds with 5-second polling)
+                    if state["poll_count"] >= 3:
+                        state["status"] = "COMPLETE"
+                        state["filled_quantity"] = state["target_quantity"]
+                        state["pending_quantity"] = 0
+                        state["average_price"] = Decimal("1249.75")
+                    # Partial fill after 1 poll
+                    elif state["poll_count"] == 1 and self.mock_scenario != "timeout":
+                        state["filled_quantity"] = state["target_quantity"] // 2
+                        state["pending_quantity"] = state["target_quantity"] - state["filled_quantity"]
+                        state["average_price"] = Decimal("1249.80")
+
+                status = state["status"]
+                filled_quantity = state["filled_quantity"]
+                pending_quantity = state["pending_quantity"]
+                average_price = state["average_price"]
+            else:
+                # Default: order completed
+                status = "COMPLETE"
+                filled_quantity = 100
+                pending_quantity = 0
+                average_price = Decimal("1250.00")
+
+            logger.info("Order status retrieved from Zerodha (MOCK)", ctx, data={
+                "broker_order_id": broker_order_id,
+                "status": status,
+                "filled_quantity": filled_quantity,
+                "mock_scenario": self.mock_scenario
+            })
+
+            return ZerodhaOrderResponse(
+                broker_order_id=broker_order_id,
+                status=status,
+                filled_quantity=filled_quantity,
+                pending_quantity=pending_quantity,
+                average_price=average_price,
+                message="Order status retrieved"
+            )
+
         # TODO: Implement actual Zerodha API integration
-        # For now, return mock response
-        # Mock: Orders complete after some time
-        status = "COMPLETE"
-        filled_quantity = 100  # Mock
-        pending_quantity = 0
-        average_price = Decimal("1250.00")
-
-        logger.info("Order status retrieved from Zerodha", ctx, data={
-            "broker_order_id": broker_order_id,
-            "status": status,
-            "filled_quantity": filled_quantity
-        })
-
-        return ZerodhaOrderResponse(
-            broker_order_id=broker_order_id,
-            status=status,
-            filled_quantity=filled_quantity,
-            pending_quantity=pending_quantity,
-            average_price=average_price,
-            message="Order status retrieved"
-        )
+        # order_info = self.kite.order_history(broker_order_id)[-1]
+        # ...
+        raise NotImplementedError("Real KiteConnect integration not yet implemented")
 
     async def cancel_order(
         self,

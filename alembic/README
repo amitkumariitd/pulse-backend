@@ -1,1 +1,227 @@
-Generic single-database configuration.
+# Alembic Migration Best Practices
+
+This directory contains database migrations for the Pulse backend.
+
+**See also:**
+- **PostgreSQL Standards**: `doc/guides/postgres.md` - Schema requirements, tracing, history tables
+- **Migration Templates**: `doc/examples/postgres/03-migration.py` - Copy-paste ready examples
+- **Database Tools**: `tools/database/README.md` - Testing and debugging scripts
+
+---
+
+## Migration File Naming
+
+**All migration files MUST start with Unix timestamp (seconds).**
+
+Format: `{unix_timestamp}_{description}.py`
+
+Example: `1768654080_create_orders_table.py`
+
+**Why Unix timestamps?**
+- Chronological ordering (files sort by creation time)
+- Uniqueness across developers (no revision ID conflicts)
+- Easy identification of when migration was created
+
+**How it works:**
+- Revision IDs are auto-generated in `alembic/env.py` using `int(time.time())`
+- File names automatically use the revision ID via `alembic.ini` template
+- Never manually edit revision IDs
+
+---
+
+## Quick Commands
+
+```bash
+# Create migration
+alembic revision -m "descriptive_message"
+
+# Run migrations
+alembic upgrade head
+
+# Rollback one migration
+alembic downgrade -1
+
+# Check current version
+alembic current
+
+# View history
+alembic history
+```
+
+---
+
+## Migration Best Practices
+
+### 1. Naming Conventions
+✅ **Good**: `create_orders_table`, `add_status_column_to_orders`, `add_index_on_instrument`
+❌ **Bad**: `update_schema`, `fix_db`, `changes`, `migration_v2`
+
+Revision IDs are auto-generated using Unix timestamps for chronological ordering.
+
+### 2. Creating Tables
+
+**Use the template**: `doc/examples/postgres/03-migration.py`
+
+Your migration MUST include (in this order):
+1. Main table with required columns (see PostgreSQL standards)
+2. Indexes (primary key, foreign keys, frequently filtered columns)
+3. History table (same columns + history_id, operation, changed_at)
+4. History trigger function (handles INSERT/UPDATE/DELETE)
+5. History triggers (3 triggers: after insert, after update, after delete)
+6. `updated_at` trigger function and trigger
+
+### 3. Modifying Tables - THE CRITICAL PART
+
+**When adding/removing columns, you MUST update THREE things:**
+
+1. **Main table** - Add/remove the column
+2. **History table** - Add/remove the same column
+3. **Trigger function** - Update INSERT statements to include/exclude the column
+
+**Missing any of these = broken history tracking or trigger errors!**
+
+#### Adding a Column (Complete Example)
+
+```python
+def upgrade():
+    # 1. Add to main table
+    op.execute("""
+        ALTER TABLE orders
+        ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+    """)
+
+    # 2. Add to history table
+    op.execute("""
+        ALTER TABLE orders_history
+        ADD COLUMN status VARCHAR(20) NOT NULL
+    """)
+
+    # 3. Update trigger function - list ALL columns including new one
+    op.execute("""
+        CREATE OR REPLACE FUNCTION orders_history_trigger()
+        RETURNS TRIGGER AS $$
+        BEGIN
+            IF (TG_OP = 'DELETE') THEN
+                INSERT INTO orders_history (
+                    operation, changed_at,
+                    id, instrument, quantity, status  -- ← Added status
+                ) VALUES (
+                    'DELETE', NOW(),
+                    OLD.id, OLD.instrument, OLD.quantity, OLD.status  -- ← Added OLD.status
+                );
+                RETURN OLD;
+            ELSIF (TG_OP = 'UPDATE') THEN
+                INSERT INTO orders_history (
+                    operation, changed_at,
+                    id, instrument, quantity, status  -- ← Added status
+                ) VALUES (
+                    'UPDATE', NOW(),
+                    OLD.id, OLD.instrument, OLD.quantity, OLD.status  -- ← Added OLD.status
+                );
+                RETURN NEW;
+            ELSIF (TG_OP = 'INSERT') THEN
+                INSERT INTO orders_history (
+                    operation, changed_at,
+                    id, instrument, quantity, status  -- ← Added status
+                ) VALUES (
+                    'INSERT', NOW(),
+                    NEW.id, NEW.instrument, NEW.quantity, NEW.status  -- ← Added NEW.status
+                );
+                RETURN NEW;
+            END IF;
+        END;
+        $$ LANGUAGE plpgsql;
+    """)
+
+def downgrade():
+    # Reverse in opposite order
+    op.execute("CREATE OR REPLACE FUNCTION orders_history_trigger() ...")  # Remove status
+    op.execute("ALTER TABLE orders_history DROP COLUMN status")
+    op.execute("ALTER TABLE orders DROP COLUMN status")
+```
+
+#### Removing a Column
+
+Same process in reverse:
+1. Update trigger function (remove column from all INSERT statements)
+2. Remove from history table
+3. Remove from main table
+
+### 4. Common Mistakes (What Causes "Fix" Migrations)
+
+❌ **Forgetting to update history table** → Leads to schema mismatch errors
+❌ **Forgetting to update trigger function** → Leads to "column does not exist" errors
+❌ **Listing columns in different order** → Confusing, hard to review
+❌ **Using OLD.* for INSERT or NEW.* for DELETE** → Wrong data captured
+❌ **Missing downgrade()** → Can't rollback migrations
+❌ **Not testing before committing** → Broken migrations in main branch
+
+### 5. Trigger Function Checklist
+
+When writing trigger functions, verify:
+
+- [ ] All three operations handled: DELETE, UPDATE, INSERT
+- [ ] DELETE uses OLD.* and returns OLD
+- [ ] UPDATE uses OLD.* and returns NEW (captures state before change)
+- [ ] INSERT uses NEW.* and returns NEW
+- [ ] All columns listed in same order for all three operations
+- [ ] `operation` and `changed_at` included in INSERT
+- [ ] Column list matches history table schema exactly
+
+### 6. Testing Workflow
+
+**Before committing any migration:**
+
+```bash
+# 1. Reset database
+python tools/database/reset_db.py
+
+# 2. Run all migrations
+alembic upgrade head
+
+# 3. Verify schema
+python tools/database/check_schema.py
+
+# 4. Test downgrade
+alembic downgrade -1
+
+# 5. Test upgrade again
+alembic upgrade head
+```
+
+### 7. Pre-Commit Checklist
+
+- [ ] Descriptive migration name
+- [ ] Both upgrade() and downgrade() implemented
+- [ ] If creating table: main table + history table + triggers (see template)
+- [ ] If modifying table: updated main + history + trigger function
+- [ ] Tested upgrade successfully
+- [ ] Tested downgrade successfully
+- [ ] Verified schema with `check_schema.py`
+- [ ] Follows PostgreSQL standards (see `doc/guides/postgres.md`)
+
+---
+
+## Troubleshooting
+
+### "Column does not exist" in trigger
+**Cause**: Trigger function not updated when column was added/removed
+**Fix**: Update trigger function to match current table schema
+
+### "Relation does not exist" for history table
+**Cause**: History table not created or dropped
+**Fix**: Ensure migration creates both main and history tables
+
+### Migration version mismatch
+```bash
+alembic current                              # Check current version
+alembic history                              # Check expected version
+python tools/database/fix_alembic_version.py # Fix (development only)
+```
+
+### Failed migration
+```bash
+alembic downgrade -1  # Rollback
+# Fix the migration file
+alembic upgrade head  # Try again
+```

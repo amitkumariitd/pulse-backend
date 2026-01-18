@@ -55,9 +55,9 @@ class OrderSliceRepository(BaseRepository):
                 INSERT INTO order_slices (
                     id, order_id, instrument, side, quantity,
                     sequence_number, status, scheduled_at,
-                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id
+                    request_id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING *
                 """,
                 slice_id,
@@ -68,10 +68,6 @@ class OrderSliceRepository(BaseRepository):
                 sequence_number,
                 'PENDING',  # Initial status
                 scheduled_at,
-                ctx.trace_id,           # Origin trace ID
-                ctx.trace_source,       # Origin trace source
-                ctx.request_id,         # Origin request ID
-                ctx.request_source,     # Origin request source
                 async_request_id        # New request_id for async workers
             )
             
@@ -123,9 +119,9 @@ class OrderSliceRepository(BaseRepository):
                         INSERT INTO order_slices (
                             id, order_id, instrument, side, quantity,
                             sequence_number, status, scheduled_at,
-                            origin_trace_id, origin_trace_source, origin_request_id, origin_request_source, request_id
+                            request_id
                         )
-                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                        VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                         """,
                         slice_data['id'],
                         slice_data['order_id'],
@@ -135,10 +131,6 @@ class OrderSliceRepository(BaseRepository):
                         slice_data['sequence_number'],
                         'PENDING',
                         slice_data['scheduled_at'],
-                        ctx.trace_id,           # Origin trace ID
-                        ctx.trace_source,       # Origin trace source
-                        ctx.request_id,         # Origin request ID
-                        ctx.request_source,     # Origin request source
                         async_request_id        # New request_id for async workers
                     )
                     count += 1

@@ -81,6 +81,17 @@
 
 **Example**: `doc/examples/postgres/03-migration.py`
 
+**Critical Rule for Modifying Tables:**
+
+When adding/removing columns, you MUST update THREE things:
+1. **Main table** - Add/remove the column
+2. **History table** - Add/remove the same column
+3. **Trigger function** - Update INSERT statements to include/exclude the column
+
+**Missing any of these = broken history tracking or trigger errors!**
+
+See `alembic/README` for detailed migration best practices and common mistakes.
+
 ---
 
 ## Schema Standards

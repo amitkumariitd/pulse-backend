@@ -50,16 +50,13 @@ async def test_create_broker_event_place_order_integration():
                 """
                 INSERT INTO order_slices (
                     id, order_id, instrument, side, quantity, sequence_number,
-                    scheduled_at, status,
-                    origin_trace_id, origin_trace_source, origin_request_id, origin_request_source,
-                    request_id
+                    scheduled_at, status, request_id
                 )
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 """,
                 slice_id, order_id, "NSE:RELIANCE", "BUY", 100, 1,
                 datetime.now(timezone.utc), "PENDING",
-                ctx.trace_id, ctx.trace_source, ctx.request_id, ctx.request_source,
-                ctx.request_id
+                ctx.request_id  # order_slices only has request_id, not origin_* columns
             )
 
             execution_id = f"test_exec_{generate_request_id()[:8]}"

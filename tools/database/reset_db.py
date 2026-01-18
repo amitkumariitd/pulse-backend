@@ -24,7 +24,11 @@ async def reset_db():
     
     print("Dropping all tables and functions...")
 
-    # Drop tables first (this will cascade drop triggers)
+    # Drop tables in reverse dependency order (this will cascade drop triggers)
+    await conn.execute("DROP TABLE IF EXISTS order_slice_broker_events_history CASCADE")
+    await conn.execute("DROP TABLE IF EXISTS order_slice_broker_events CASCADE")
+    await conn.execute("DROP TABLE IF EXISTS order_slice_executions_history CASCADE")
+    await conn.execute("DROP TABLE IF EXISTS order_slice_executions CASCADE")
     await conn.execute("DROP TABLE IF EXISTS order_slices_history CASCADE")
     await conn.execute("DROP TABLE IF EXISTS order_slices CASCADE")
     await conn.execute("DROP TABLE IF EXISTS orders_history CASCADE")
@@ -34,7 +38,9 @@ async def reset_db():
     await conn.execute("DROP FUNCTION IF EXISTS update_updated_at_column() CASCADE")
     await conn.execute("DROP FUNCTION IF EXISTS orders_history_trigger() CASCADE")
     await conn.execute("DROP FUNCTION IF EXISTS order_slices_history_trigger() CASCADE")
-    
+    await conn.execute("DROP FUNCTION IF EXISTS order_slice_executions_history_trigger() CASCADE")
+    await conn.execute("DROP FUNCTION IF EXISTS order_slice_broker_events_history_trigger() CASCADE")
+
     # Update alembic version to base
     await conn.execute("DELETE FROM alembic_version")
     

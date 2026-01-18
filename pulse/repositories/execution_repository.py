@@ -212,7 +212,7 @@ class ExecutionRepository(BaseRepository):
         """
         conn = await self.get_connection()
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
             new_timeout = now + timedelta(minutes=extend_timeout_minutes)
 
             result = await conn.fetchrow(
@@ -278,7 +278,7 @@ class ExecutionRepository(BaseRepository):
         """
         conn = await self.get_connection()
         try:
-            now = datetime.utcnow()
+            now = datetime.now(timezone.utc)
 
             results = await conn.fetch(
                 """

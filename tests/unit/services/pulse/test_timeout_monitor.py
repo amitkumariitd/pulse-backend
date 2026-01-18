@@ -7,20 +7,43 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent.parent.parent))
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
-import time
+from datetime import datetime, timezone
 from shared.observability.context import RequestContext, is_valid_trace_id, is_valid_request_id
-from pulse.workers.timeout_monitor import recover_stuck_orders, run_timeout_monitor
+from pulse.workers.timeout_monitor import recover_timed_out_executions, run_timeout_monitor
 
 
 @pytest.mark.asyncio
-async def test_recover_stuck_orders_success():
-    """Test recovering stuck orders."""
+async def test_recover_timed_out_executions_success():
+    """Test recovering timed-out executions."""
     # Arrange
-    mock_pool = AsyncMock()
+    mock_exec_repo = AsyncMock()
+    mock_slice_repo = AsyncMock()
+
+    # Mock timed-out executions
+    timed_out_executions = [
+        {
+            'id': 'exec1',
+            'slice_id': 'slice1',
+            'executor_id': 'exec-worker-1',
+            'filled_quantity': 50,
+            'average_price': 1250.00
+        },
+        {
+            'id': 'exec2',
+            'slice_id': 'slice2',
+            'executor_id': 'exec-worker-2',
+            'filled_quantity': 0,
+            'average_price': None
+        }
+    ]
+
+    mock_exec_repo.find_timed_out_executions = AsyncMock(return_value=timed_out_executions)
+    mock_exec_repo.update_execution_status = AsyncMock()
+
     mock_conn = AsyncMock()
-    mock_pool.acquire = AsyncMock(return_value=mock_conn)
-    mock_pool.release = AsyncMock()
-    mock_conn.execute = AsyncMock(return_value="UPDATE 3")
+    mock_slice_repo.get_connection = AsyncMock(return_value=mock_conn)
+    mock_slice_repo.release_connection = AsyncMock()
+    mock_conn.execute = AsyncMock()
 
     ctx = RequestContext(
         trace_id="t1234567890abcdef1234",
@@ -31,46 +54,30 @@ async def test_recover_stuck_orders_success():
     )
 
     # Act
-    count = await recover_stuck_orders(mock_pool, timeout_minutes=5, ctx=ctx)
+    count = await recover_timed_out_executions(mock_exec_repo, mock_slice_repo, ctx)
 
     # Assert
-    assert count == 3
-    mock_pool.acquire.assert_called_once()
-    mock_conn.execute.assert_called_once()
-    mock_pool.release.assert_called_once_with(mock_conn)
+    assert count == 2
+    mock_exec_repo.find_timed_out_executions.assert_called_once()
+    assert mock_exec_repo.update_execution_status.call_count == 2
+    assert mock_conn.execute.call_count == 2
 
-    # Verify SQL parameters
-    call_args = mock_conn.execute.call_args
-    sql = call_args[0][0]
-    params = call_args[0][1:]
-
-    assert "UPDATE orders" in sql
-    assert "order_queue_status = 'FAILED'" in sql
-    assert "WHERE order_queue_status = 'IN_PROGRESS'" in sql
-    assert "AND updated_at <" in sql
-
-    # Check error message
-    assert "Processing timeout" in params[0]
-    assert "5 minutes" in params[0]
-
-    # Check context propagation (request_id is now param[1], threshold_time is param[2])
-    assert params[1] == ctx.request_id
-
-    # Verify threshold_time is a datetime object
-    from datetime import datetime, timezone
-    assert isinstance(params[2], datetime)
-    assert params[2].tzinfo == timezone.utc
+    # Verify first execution was marked as EXECUTOR_TIMEOUT
+    first_call = mock_exec_repo.update_execution_status.call_args_list[0]
+    assert first_call[1]['execution_id'] == 'exec1'
+    assert first_call[1]['execution_status'] == 'COMPLETED'
+    assert first_call[1]['execution_result'] == 'EXECUTOR_TIMEOUT'
+    assert first_call[1]['error_code'] == 'EXECUTOR_TIMEOUT'
 
 
 @pytest.mark.asyncio
-async def test_recover_stuck_orders_no_stuck_orders():
-    """Test when there are no stuck orders."""
+async def test_recover_timed_out_executions_no_timeouts():
+    """Test when there are no timed-out executions."""
     # Arrange
-    mock_pool = AsyncMock()
-    mock_conn = AsyncMock()
-    mock_pool.acquire = AsyncMock(return_value=mock_conn)
-    mock_pool.release = AsyncMock()
-    mock_conn.execute = AsyncMock(return_value="UPDATE 0")
+    mock_exec_repo = AsyncMock()
+    mock_slice_repo = AsyncMock()
+
+    mock_exec_repo.find_timed_out_executions = AsyncMock(return_value=[])
 
     ctx = RequestContext(
         trace_id="t1234567890abcdef1234",
@@ -81,22 +88,38 @@ async def test_recover_stuck_orders_no_stuck_orders():
     )
 
     # Act
-    count = await recover_stuck_orders(mock_pool, timeout_minutes=5, ctx=ctx)
+    count = await recover_timed_out_executions(mock_exec_repo, mock_slice_repo, ctx)
 
     # Assert
     assert count == 0
-    mock_pool.release.assert_called_once_with(mock_conn)
+    mock_exec_repo.find_timed_out_executions.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_recover_stuck_orders_custom_timeout():
-    """Test with custom timeout value."""
+async def test_recover_timed_out_executions_partial_fill():
+    """Test recovering execution with partial fill."""
     # Arrange
-    mock_pool = AsyncMock()
+    mock_exec_repo = AsyncMock()
+    mock_slice_repo = AsyncMock()
+
+    # Mock execution with partial fill
+    timed_out_executions = [
+        {
+            'id': 'exec1',
+            'slice_id': 'slice1',
+            'executor_id': 'exec-worker-1',
+            'filled_quantity': 75,
+            'average_price': 1249.50
+        }
+    ]
+
+    mock_exec_repo.find_timed_out_executions = AsyncMock(return_value=timed_out_executions)
+    mock_exec_repo.update_execution_status = AsyncMock()
+
     mock_conn = AsyncMock()
-    mock_pool.acquire = AsyncMock(return_value=mock_conn)
-    mock_pool.release = AsyncMock()
-    mock_conn.execute = AsyncMock(return_value="UPDATE 1")
+    mock_slice_repo.get_connection = AsyncMock(return_value=mock_conn)
+    mock_slice_repo.release_connection = AsyncMock()
+    mock_conn.execute = AsyncMock()
 
     ctx = RequestContext(
         trace_id="t1234567890abcdef1234",
@@ -107,57 +130,16 @@ async def test_recover_stuck_orders_custom_timeout():
     )
 
     # Act
-    count = await recover_stuck_orders(mock_pool, timeout_minutes=10, ctx=ctx)
+    count = await recover_timed_out_executions(mock_exec_repo, mock_slice_repo, ctx)
 
     # Assert
     assert count == 1
 
-    # Verify timeout calculation
-    call_args = mock_conn.execute.call_args
-    params = call_args[0][1:]
-
-    # Error message should mention 10 minutes
-    assert "10 minutes" in params[0]
-
-    # Threshold should be a datetime object (params[2])
-    from datetime import datetime, timezone, timedelta
-    threshold_time = params[2]
-    assert isinstance(threshold_time, datetime)
-    assert threshold_time.tzinfo == timezone.utc
-
-    # Verify it's approximately 10 minutes ago
-    expected_threshold = datetime.now(timezone.utc) - timedelta(minutes=10)
-    time_diff = abs((threshold_time - expected_threshold).total_seconds())
-
-    # Allow 1 second tolerance for test execution time
-    assert time_diff < 1
-
-
-@pytest.mark.asyncio
-async def test_recover_stuck_orders_database_error():
-    """Test handling of database errors."""
-    # Arrange
-    mock_pool = AsyncMock()
-    mock_conn = AsyncMock()
-    mock_pool.acquire = AsyncMock(return_value=mock_conn)
-    mock_pool.release = AsyncMock()
-    mock_conn.execute = AsyncMock(side_effect=Exception("Database error"))
-
-    ctx = RequestContext(
-        trace_id="t1234567890abcdef1234",
-        trace_source="TEST",
-        request_id="r1234567890abcdef1234",
-        request_source="TEST",
-        span_source="TEST"
-    )
-
-    # Act & Assert
-    with pytest.raises(Exception) as exc_info:
-        await recover_stuck_orders(mock_pool, timeout_minutes=5, ctx=ctx)
-
-    assert "Database error" in str(exc_info.value)
-    # Connection should still be released
-    mock_pool.release.assert_called_once_with(mock_conn)
+    # Verify slice was updated with partial fill data
+    slice_update_call = mock_conn.execute.call_args
+    assert slice_update_call[0][1] == 'slice1'  # slice_id
+    assert slice_update_call[0][2] == 75  # filled_quantity
+    assert slice_update_call[0][3] == 1249.50  # average_price
 
 
 @pytest.mark.asyncio
@@ -167,16 +149,16 @@ async def test_timeout_monitor_creates_valid_context():
 
     captured_ctx = None
 
-    async def capture_and_stop(pool, timeout_minutes, ctx):
+    async def capture_and_stop(exec_repo, slice_repo, ctx):
         nonlocal captured_ctx
         captured_ctx = ctx
         raise asyncio.CancelledError()  # Stop the loop after first iteration
 
     mock_pool = AsyncMock()
 
-    with patch('pulse.workers.timeout_monitor.recover_stuck_orders', side_effect=capture_and_stop):
+    with patch('pulse.workers.timeout_monitor.recover_timed_out_executions', side_effect=capture_and_stop):
         try:
-            await run_timeout_monitor(mock_pool, check_interval_seconds=1, timeout_minutes=5)
+            await run_timeout_monitor(mock_pool, check_interval_seconds=1)
         except asyncio.CancelledError:
             pass
 

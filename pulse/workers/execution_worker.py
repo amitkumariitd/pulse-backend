@@ -398,6 +398,15 @@ async def monitor_order_until_complete(
                 "timeout_minutes": execution_timeout_minutes
             })
 
+            # Verify ownership before cancelling at broker
+            if not await verify_ownership(exec_repo, execution_id, executor_id, executor_timeout_minutes, ctx):
+                logger.warning("Lost ownership before timeout cancellation, aborting", ctx, data={
+                    "execution_id": execution_id,
+                    "broker_order_id": broker_order_id
+                })
+                # Another executor will take over
+                return None, event_sequence
+
             # Try to cancel order at broker
             try:
                 cancel_response = await zerodha_client.cancel_order(broker_order_id, ctx)

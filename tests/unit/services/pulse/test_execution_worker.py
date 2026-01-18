@@ -226,3 +226,47 @@ async def test_verify_ownership_timeout():
 
     # Assert
     assert result is False  # Ownership expired
+
+
+
+
+@pytest.mark.asyncio
+async def test_verify_ownership_executor_mismatch():
+    """Test verifying ownership when executor_id doesn't match."""
+    # Arrange
+    mock_exec_repo = AsyncMock()
+    mock_conn = AsyncMock()
+
+    # Execution timeout is in the future, but executor_id is different
+    from datetime import timedelta
+    timeout_at = datetime.now(timezone.utc) + timedelta(minutes=5)
+
+    execution_record = {
+        'id': 'exec1',
+        'executor_id': 'worker-2',  # Different executor
+        'executor_timeout_at': timeout_at
+    }
+
+    mock_exec_repo.get_connection = AsyncMock(return_value=mock_conn)
+    mock_exec_repo.release_connection = AsyncMock()
+    mock_conn.fetchrow = AsyncMock(return_value=execution_record)
+
+    ctx = RequestContext(
+        trace_id="t1234567890abcdef1234",
+        trace_source="TEST",
+        request_id="r1234567890abcdef1234",
+        request_source="TEST",
+        span_source="TEST"
+    )
+
+    # Act
+    result = await verify_ownership(
+        exec_repo=mock_exec_repo,
+        execution_id='exec1',
+        executor_id='worker-1',  # Expecting worker-1
+        timeout_minutes=5,
+        ctx=ctx
+    )
+
+    # Assert
+    assert result is False  # Ownership lost - executor mismatch

@@ -11,6 +11,8 @@ This implements the cancellation logic from doc/requirements/003.order_slice_exe
 
 import asyncio
 import asyncpg
+import time
+import uuid
 from datetime import datetime, timezone
 from typing import List
 
@@ -22,6 +24,11 @@ from shared.observability.context import RequestContext, generate_trace_id, gene
 from shared.observability.logger import get_logger
 
 logger = get_logger("pulse.workers.cancellation_handler")
+
+
+def generate_event_id() -> str:
+    """Generate unique event ID."""
+    return f"evt-{uuid.uuid4()}"
 
 
 async def handle_order_cancellation(
@@ -104,7 +111,7 @@ async def handle_order_cancellation(
             elif slice_status == 'EXECUTING':
                 # Find active execution
                 execution = await exec_repo.get_execution_by_slice_id(slice_id, ctx)
-                
+
                 if not execution:
                     # No execution found, just mark slice as SKIPPED
                     conn = await slice_repo.get_connection()
@@ -123,36 +130,107 @@ async def handle_order_cancellation(
                     finally:
                         await slice_repo.release_connection(conn)
                     continue
-                
+
                 # If broker_order_id exists, try to cancel at broker
                 if execution.get('broker_order_id'):
+                    broker_order_id = execution['broker_order_id']
+                    execution_id = execution['id']
+                    attempt_id = execution.get('attempt_id', 'unknown')
+                    executor_id = execution.get('executor_id', 'cancellation-handler')
+
+                    # Get next event sequence number
+                    conn = await event_repo.get_connection()
                     try:
-                        await zerodha_client.cancel_order(
-                            execution['broker_order_id'],
+                        event_seq_result = await conn.fetchval(
+                            """
+                            SELECT COALESCE(MAX(event_sequence), 0) + 1
+                            FROM order_slice_broker_events
+                            WHERE execution_id = $1
+                            """,
+                            execution_id
+                        )
+                        event_sequence = event_seq_result or 1
+                    finally:
+                        await event_repo.release_connection(conn)
+
+                    start_time = time.time()
+                    cancel_success = False
+                    error_code = None
+                    error_message = None
+
+                    try:
+                        cancel_response = await zerodha_client.cancel_order(
+                            broker_order_id,
                             ctx
                         )
-                        
+
+                        response_time_ms = int((time.time() - start_time) * 1000)
+                        cancel_success = True
+
                         logger.info("Cancelled order at broker", ctx, data={
                             "slice_id": slice_id,
-                            "broker_order_id": execution['broker_order_id']
+                            "broker_order_id": broker_order_id,
+                            "status": cancel_response.status
                         })
-                        
+
+                        # Record successful cancellation event
+                        await event_repo.create_broker_event(
+                            event_id=generate_event_id(),
+                            execution_id=execution_id,
+                            slice_id=slice_id,
+                            event_sequence=event_sequence,
+                            event_type='CANCEL_REQUEST',
+                            attempt_number=1,
+                            attempt_id=attempt_id,
+                            executor_id=executor_id,
+                            broker_name='zerodha',
+                            is_success=True,
+                            broker_order_id=broker_order_id,
+                            broker_status=cancel_response.status,
+                            broker_message=cancel_response.message,
+                            response_time_ms=response_time_ms,
+                            ctx=ctx
+                        )
+
                         cancelled_executions += 1
-                        
+
                     except Exception as e:
+                        response_time_ms = int((time.time() - start_time) * 1000)
+                        error_code = 'CANCEL_FAILED'
+                        error_message = str(e)
+
                         logger.warning("Failed to cancel order at broker", ctx, data={
                             "slice_id": slice_id,
-                            "broker_order_id": execution['broker_order_id'],
-                            "error": str(e)
+                            "broker_order_id": broker_order_id,
+                            "error": error_message
                         })
-                
-                # Mark execution as SKIPPED
+
+                        # Record failed cancellation event
+                        await event_repo.create_broker_event(
+                            event_id=generate_event_id(),
+                            execution_id=execution_id,
+                            slice_id=slice_id,
+                            event_sequence=event_sequence,
+                            event_type='CANCEL_REQUEST',
+                            attempt_number=1,
+                            attempt_id=attempt_id,
+                            executor_id=executor_id,
+                            broker_name='zerodha',
+                            is_success=False,
+                            broker_order_id=broker_order_id,
+                            error_code=error_code,
+                            error_message=error_message,
+                            response_time_ms=response_time_ms,
+                            ctx=ctx
+                        )
+
+                # Mark execution as SKIPPED (regardless of broker cancellation success)
                 await exec_repo.update_execution_status(
                     execution_id=execution['id'],
                     execution_status='SKIPPED',
                     ctx=ctx
                 )
-                
+
                 # Mark slice as SKIPPED
                 conn = await slice_repo.get_connection()
                 try:

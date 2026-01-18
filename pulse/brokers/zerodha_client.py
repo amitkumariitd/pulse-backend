@@ -22,8 +22,12 @@ from datetime import datetime
 from shared.observability.context import RequestContext
 from shared.observability.logger import get_logger
 
-# TODO: Uncomment for production use
-# from kiteconnect import KiteConnect
+try:
+    from kiteconnect import KiteConnect
+    KITECONNECT_AVAILABLE = True
+except ImportError:
+    KITECONNECT_AVAILABLE = False
+    KiteConnect = None
 
 logger = get_logger("pulse.brokers.zerodha")
 
@@ -113,11 +117,16 @@ class ZerodhaClient:
         self._mock_order_states = {}  # Track mock order states for polling
 
         if not use_mock:
-            # TODO: Uncomment for production
-            # self.kite = KiteConnect(api_key=api_key)
-            # if access_token:
-            #     self.kite.set_access_token(access_token)
-            pass
+            if not KITECONNECT_AVAILABLE:
+                raise ImportError(
+                    "kiteconnect library not installed. "
+                    "Install it with: pip install kiteconnect"
+                )
+            self.kite = KiteConnect(api_key=api_key)
+            if access_token:
+                self.kite.set_access_token(access_token)
+        else:
+            self.kite = None
     
     async def place_order(
         self,
@@ -212,33 +221,54 @@ class ZerodhaClient:
                 "mock_scenario": self.mock_scenario
             })
         else:
-            # TODO: Real KiteConnect implementation
-            # Parse instrument (e.g., "NSE:RELIANCE" -> exchange="NSE", symbol="RELIANCE")
-            # exchange, symbol = order_request.instrument.split(":")
-            #
-            # order_params = {
-            #     "exchange": exchange,
-            #     "tradingsymbol": symbol,
-            #     "transaction_type": order_request.side,  # "BUY" or "SELL"
-            #     "quantity": order_request.quantity,
-            #     "order_type": order_request.order_type,  # "MARKET" or "LIMIT"
-            #     "product": order_request.product_type,  # "CNC", "MIS", etc.
-            #     "validity": order_request.validity,  # "DAY", "IOC"
-            # }
-            #
-            # if order_request.order_type == "LIMIT":
-            #     order_params["price"] = float(order_request.limit_price)
-            #
-            # result = self.kite.place_order(variety="regular", **order_params)
-            # broker_order_id = result["order_id"]
-            #
-            # # Get order status immediately after placement
-            # order_info = self.kite.order_history(broker_order_id)[-1]
-            # status = order_info["status"]
-            # filled_quantity = order_info.get("filled_quantity", 0)
-            # pending_quantity = order_info.get("pending_quantity", order_request.quantity)
-            # average_price = Decimal(str(order_info["average_price"])) if order_info.get("average_price") else None
-            raise NotImplementedError("Real KiteConnect integration not yet implemented")
+            # Real KiteConnect implementation
+            try:
+                # Parse instrument (e.g., "NSE:RELIANCE" -> exchange="NSE", symbol="RELIANCE")
+                exchange, symbol = order_request.instrument.split(":")
+
+                order_params = {
+                    "exchange": exchange,
+                    "tradingsymbol": symbol,
+                    "transaction_type": order_request.side,  # "BUY" or "SELL"
+                    "quantity": order_request.quantity,
+                    "order_type": order_request.order_type,  # "MARKET" or "LIMIT"
+                    "product": order_request.product_type,  # "CNC", "MIS", etc.
+                    "validity": order_request.validity,  # "DAY", "IOC"
+                }
+
+                if order_request.order_type == "LIMIT":
+                    if not order_request.limit_price:
+                        raise ValueError("limit_price required for LIMIT orders")
+                    order_params["price"] = float(order_request.limit_price)
+
+                # Place order with Zerodha
+                result = self.kite.place_order(variety="regular", **order_params)
+                broker_order_id = result["order_id"]
+
+                # Get order status immediately after placement
+                order_history = self.kite.order_history(broker_order_id)
+                if not order_history:
+                    raise Exception("No order history returned from Zerodha")
+
+                order_info = order_history[-1]  # Get latest status
+                status = self._map_zerodha_status(order_info["status"])
+                filled_quantity = order_info.get("filled_quantity", 0)
+                pending_quantity = order_info.get("pending_quantity", order_request.quantity)
+                average_price = Decimal(str(order_info["average_price"])) if order_info.get("average_price") else None
+
+                logger.info("Order placed with Zerodha", ctx, data={
+                    "broker_order_id": broker_order_id,
+                    "status": status,
+                    "filled_quantity": filled_quantity,
+                    "zerodha_status": order_info["status"]
+                })
+
+            except Exception as e:
+                logger.error("Failed to place order with Zerodha", ctx, data={
+                    "error": str(e),
+                    "instrument": order_request.instrument
+                })
+                raise
         
         return ZerodhaOrderResponse(
             broker_order_id=broker_order_id,
@@ -308,20 +338,41 @@ class ZerodhaClient:
                 "filled_quantity": filled_quantity,
                 "mock_scenario": self.mock_scenario
             })
+        else:
+            # Real KiteConnect implementation
+            try:
+                order_history = self.kite.order_history(broker_order_id)
+                if not order_history:
+                    raise Exception(f"No order history found for order {broker_order_id}")
 
-            return ZerodhaOrderResponse(
-                broker_order_id=broker_order_id,
-                status=status,
-                filled_quantity=filled_quantity,
-                pending_quantity=pending_quantity,
-                average_price=average_price,
-                message="Order status retrieved"
-            )
+                order_info = order_history[-1]  # Get latest status
+                status = self._map_zerodha_status(order_info["status"])
+                filled_quantity = order_info.get("filled_quantity", 0)
+                pending_quantity = order_info.get("pending_quantity", 0)
+                average_price = Decimal(str(order_info["average_price"])) if order_info.get("average_price") else None
 
-        # TODO: Implement actual Zerodha API integration
-        # order_info = self.kite.order_history(broker_order_id)[-1]
-        # ...
-        raise NotImplementedError("Real KiteConnect integration not yet implemented")
+                logger.info("Order status retrieved from Zerodha", ctx, data={
+                    "broker_order_id": broker_order_id,
+                    "status": status,
+                    "filled_quantity": filled_quantity,
+                    "zerodha_status": order_info["status"]
+                })
+
+            except Exception as e:
+                logger.error("Failed to get order status from Zerodha", ctx, data={
+                    "broker_order_id": broker_order_id,
+                    "error": str(e)
+                })
+                raise
+
+        return ZerodhaOrderResponse(
+            broker_order_id=broker_order_id,
+            status=status,
+            filled_quantity=filled_quantity,
+            pending_quantity=pending_quantity,
+            average_price=average_price,
+            message="Order status retrieved"
+        )
 
     async def cancel_order(
         self,
@@ -345,25 +396,82 @@ class ZerodhaClient:
             "broker_order_id": broker_order_id
         })
 
-        # TODO: Implement actual Zerodha API integration
-        # For now, return mock response
-        status = "CANCELLED"
-        filled_quantity = 0
-        pending_quantity = 0
+        if self.use_mock:
+            # Mock implementation
+            status = "CANCELLED"
+            filled_quantity = 0
+            pending_quantity = 0
+            average_price = None
 
-        logger.info("Order cancelled with Zerodha", ctx, data={
-            "broker_order_id": broker_order_id,
-            "status": status
-        })
+            logger.info("Order cancelled with Zerodha (MOCK)", ctx, data={
+                "broker_order_id": broker_order_id,
+                "status": status
+            })
+        else:
+            # Real KiteConnect implementation
+            try:
+                # Cancel the order
+                self.kite.cancel_order(variety="regular", order_id=broker_order_id)
+
+                # Get final status after cancellation
+                order_history = self.kite.order_history(broker_order_id)
+                if order_history:
+                    order_info = order_history[-1]
+                    status = self._map_zerodha_status(order_info["status"])
+                    filled_quantity = order_info.get("filled_quantity", 0)
+                    pending_quantity = order_info.get("pending_quantity", 0)
+                    average_price = Decimal(str(order_info["average_price"])) if order_info.get("average_price") else None
+                else:
+                    # Fallback if no history available
+                    status = "CANCELLED"
+                    filled_quantity = 0
+                    pending_quantity = 0
+                    average_price = None
+
+                logger.info("Order cancelled with Zerodha", ctx, data={
+                    "broker_order_id": broker_order_id,
+                    "status": status,
+                    "filled_quantity": filled_quantity
+                })
+
+            except Exception as e:
+                logger.error("Failed to cancel order with Zerodha", ctx, data={
+                    "broker_order_id": broker_order_id,
+                    "error": str(e)
+                })
+                raise
 
         return ZerodhaOrderResponse(
             broker_order_id=broker_order_id,
             status=status,
             filled_quantity=filled_quantity,
             pending_quantity=pending_quantity,
-            average_price=None,
+            average_price=average_price,
             message="Order cancelled successfully"
         )
+
+    def _map_zerodha_status(self, zerodha_status: str) -> str:
+        """Map Zerodha order status to our internal status.
+
+        Zerodha statuses: COMPLETE, REJECTED, CANCELLED, OPEN, TRIGGER PENDING
+        Our statuses: COMPLETE, REJECTED, CANCELLED, OPEN, PENDING
+
+        Args:
+            zerodha_status: Status from Zerodha API
+
+        Returns:
+            Mapped status for our system
+        """
+        status_map = {
+            "COMPLETE": "COMPLETE",
+            "REJECTED": "REJECTED",
+            "CANCELLED": "CANCELLED",
+            "OPEN": "OPEN",
+            "TRIGGER PENDING": "PENDING",
+            "PENDING": "PENDING",
+        }
+
+        return status_map.get(zerodha_status, zerodha_status)
 
     async def close(self):
         """Close the client (no-op for KiteConnect, kept for interface compatibility)."""

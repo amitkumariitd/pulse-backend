@@ -15,11 +15,13 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+import pytest
 from decimal import Decimal
 from pulse.brokers.zerodha_client import ZerodhaClient, ZerodhaOrderRequest
 from shared.observability.context import RequestContext, generate_trace_id, generate_request_id
 
 
+@pytest.mark.asyncio
 async def test_market_order():
     """Test market order execution (completes immediately)."""
     print("\n" + "="*60)
@@ -61,6 +63,7 @@ async def test_market_order():
     print("\n✓ Market order test PASSED\n")
 
 
+@pytest.mark.asyncio
 async def test_limit_order_with_polling():
     """Test limit order with progressive filling."""
     print("\n" + "="*60)
@@ -118,6 +121,7 @@ async def test_limit_order_with_polling():
     print("\n✓ Limit order test PASSED\n")
 
 
+@pytest.mark.asyncio
 async def test_partial_fill_scenario():
     """Test partial fill scenario."""
     print("\n" + "="*60)
@@ -157,6 +161,7 @@ async def test_partial_fill_scenario():
     print("\n✓ Partial fill test PASSED\n")
 
 
+@pytest.mark.asyncio
 async def test_rejection_scenario():
     """Test broker rejection scenario."""
     print("\n" + "="*60)

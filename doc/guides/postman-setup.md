@@ -192,6 +192,6 @@ This keeps the collection in sync with the codebase for the whole team.
 ## See Also
 
 - Full documentation: `postman/README.md`
-- API contracts: `doc/contract/`
+- API contracts: `contracts/`
 - Local setup: `doc/guides/local-setup.md`
 

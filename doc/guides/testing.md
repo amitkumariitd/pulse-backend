@@ -390,7 +390,7 @@ Tests run automatically on:
 
 ## Relationship to Other Standards
 
-- Error codes defined in `doc/contract/common.md`
+- Error codes defined in `contracts/schemas/common.md`
 - Logging format in `doc/guides/logging.md`
 - Tracing headers in `doc/guides/tracing.md`
 

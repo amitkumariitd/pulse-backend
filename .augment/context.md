@@ -77,16 +77,19 @@ Public clients must never call internal endpoints.
 
 ## API contracts (source of truth)
 All API contracts live under:
-doc/contract/
+contracts/
 
+This folder is a git submodule shared across all repositories.
 
-They are split as follows:
-- `common.md`
+They are organized as follows:
+- `schemas/common.md` and `schemas/common.yaml`
   Shared schemas, headers, enums, and error formats
-- `gapi.md`
+- `service-groups/pulse-backend/services/gapi-api/api.md` and `openapi.yaml`
   Public-facing GAPI endpoints
-- `pulse.md`
+- `service-groups/pulse-backend/services/pulse-api/api.md` and `openapi.yaml`
   Internal Pulse service endpoints
+- `product/`
+  Product documentation and feature specifications
 
 No endpoint, request, or response shape may be implemented
 unless it is defined in these contract files.

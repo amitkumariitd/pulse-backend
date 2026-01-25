@@ -385,6 +385,6 @@ All deployment files are organized in the `deployment/` directory:
 - See `deployment/README.md` for deployment structure
 - See `TESTING.md` for testing guidelines
 - See `postman/README.md` and `doc/guides/postman-setup.md` for Postman usage
-- See `doc/contract/` for API contracts
+- See `contracts/` for API contracts
 - See `.augment/context.md` for architecture
 

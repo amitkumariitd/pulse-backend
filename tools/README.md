@@ -44,5 +44,5 @@ This directory can be extended with:
 
 - [Deployment Tools](../deployment/) - Production deployment files
 - [Testing Guide](../TESTING.md) - Automated testing
-- [API Contracts](../doc/contract/) - API specifications
+- [API Contracts](../contracts/) - API specifications
 

@@ -25,13 +25,11 @@ pulse-backend/
 ├── tools/                      # 🆕 Development tools
 │   └── README.md              # Tools overview
 │
+├── contracts/                  # 🆕 API contracts (git submodule, see contracts/README.md)
+│
 ├── doc/                        # Documentation
 │   ├── deployment.md          # 🆕 Deployment guide
 │   ├── product_context.md     # Product overview
-│   ├── contract/              # API contracts
-│   │   ├── common.md
-│   │   ├── gapi.md
-│   │   └── pulse.md
 │   ├── examples/              # Code examples
 │   └── standards/             # Technical standards
 │       ├── config.md

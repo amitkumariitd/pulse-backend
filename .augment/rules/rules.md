@@ -34,11 +34,11 @@ They are mandatory and must be followed for every task.
 
 ## API contract rules (non-negotiable)
 
-- All APIs MUST be defined in `doc/contract/` before implementation.
+- All APIs MUST be defined in `contracts/` before implementation.
 - Do NOT invent endpoints, request fields, response fields, or error formats.
-- GAPI endpoints must exist only in `doc/contract/gapi.md`.
-- Pulse endpoints must exist only in `doc/contract/pulse.md`.
-- Shared schemas must come only from `doc/contract/common.md`.
+- GAPI endpoints must exist only in `contracts/service-groups/pulse-backend/services/gapi-api/api.md`.
+- Pulse endpoints must exist only in `contracts/service-groups/pulse-backend/services/pulse-api/api.md`.
+- Shared schemas must come only from `contracts/schemas/common.md` and `contracts/schemas/common.yaml`.
 
 If a change requires modifying a contract:
 1) Update the contract document first
@@ -176,5 +176,5 @@ Testing is mandatory for all code changes. No exceptions.
 ## When in doubt
 
 - Re-read `.augment/context.md`
-- Re-read `doc/contract/*`
+- Re-read `contracts/*`
 - Ask for clarification instead of guessing

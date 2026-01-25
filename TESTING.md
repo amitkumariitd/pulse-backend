@@ -25,20 +25,20 @@ open htmlcov/index.html
 ./scripts/run_tests_local.sh tests/integration/ -v   # All integration tests
 
 # By component
-./scripts/run_tests_local.sh tests/unit/services/gapi/ -v
-./scripts/run_tests_local.sh tests/unit/services/pulse/ -v
-./scripts/run_tests_local.sh tests/integration/services/gapi/ -v
-./scripts/run_tests_local.sh tests/integration/services/pulse/ -v
+./scripts/run_tests_local.sh tests/unit/pulse-backend/gapi/ -v
+./scripts/run_tests_local.sh tests/unit/pulse-backend/pulse/ -v
+./scripts/run_tests_local.sh tests/integration/pulse-backend/gapi/ -v
+./scripts/run_tests_local.sh tests/integration/pulse-backend/pulse/ -v
 
 # Shared modules
 ./scripts/run_tests_local.sh tests/unit/shared/ -v
 ./scripts/run_tests_local.sh tests/integration/shared/ -v
 
 # Specific file
-./scripts/run_tests_local.sh tests/unit/services/gapi/test_health.py -v
+./scripts/run_tests_local.sh tests/unit/pulse-backend/gapi/test_health.py -v
 
 # Specific function
-./scripts/run_tests_local.sh tests/unit/services/gapi/test_health.py::test_health_returns_ok -v
+./scripts/run_tests_local.sh tests/unit/pulse-backend/gapi/test_health.py::test_health_returns_ok -v
 ```
 
 ## Configuration for Tests

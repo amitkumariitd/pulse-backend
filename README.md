@@ -6,9 +6,9 @@ Trading backend monorepo with three components:
 - **Pulse Background**: Background workers for async order processing
 
 **Quick-start guides below. For detailed information, see:**
-- `doc/examples/` - Code templates and examples (Python/asyncpg, etc.)
-- `doc/guides/` - Implementation guides (broker integration)
 - `contracts/standards/` - Cross-service standards (database, testing, API, etc.)
+- `doc/guides/` - Implementation guides (broker integration)
+- `doc/examples/` - Context usage examples
 
 ## Requirements
 
@@ -111,19 +111,19 @@ See [TESTING.md](TESTING.md) for details.
 **Connection:** Already configured in `pulse/infrastructure/database.py`
 
 **Create new table:**
-1. See SQL examples: `contracts/standards/database/examples/`
+1. See SQL examples: `contracts/standards/database/examples/01-basic-table.sql`
 2. Create migration: `alembic revision -m "create my_table"`
-3. Copy from `doc/examples/postgres/03-migration.py`
+3. Copy from `contracts/standards/database/examples/03-migration.py`
 4. Run: `alembic upgrade head`
 
 **Create repository:**
-1. Copy template: `doc/examples/postgres/04-repository.py`
+1. Copy template: `contracts/standards/database/examples/04-repository.py`
 2. Customize for your table
 3. Use in routes via dependency injection
 
 **See:**
 - [Database Standard](contracts/standards/database/README.md) - Principles and patterns
-- `doc/examples/postgres/` - Python/asyncpg examples and templates
+- [Database Examples](contracts/standards/database/examples/) - SQL + Python templates
 
 ---
 

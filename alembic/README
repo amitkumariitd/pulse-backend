@@ -3,8 +3,8 @@
 This directory contains database migrations for the Pulse backend.
 
 **See also:**
-- **PostgreSQL Standards**: `doc/guides/postgres.md` - Schema requirements, tracing, history tables
-- **Migration Templates**: `doc/examples/postgres/03-migration.py` - Copy-paste ready examples
+- **PostgreSQL Standards**: `contracts/standards/database/README.md` - Schema requirements, tracing, history tables
+- **Migration Templates**: `contracts/standards/database/examples/03-migration.py` - Copy-paste ready examples
 - **Database Tools**: `tools/database/README.md` - Testing and debugging scripts
 
 ---
@@ -60,7 +60,7 @@ Revision IDs are auto-generated using Unix timestamps for chronological ordering
 
 ### 2. Creating Tables
 
-**Use the template**: `doc/examples/postgres/03-migration.py`
+**Use the template**: `contracts/standards/database/examples/03-migration.py`
 
 Your migration MUST include (in this order):
 1. Main table with required columns (see PostgreSQL standards)
@@ -198,7 +198,7 @@ alembic upgrade head
 - [ ] Tested upgrade successfully
 - [ ] Tested downgrade successfully
 - [ ] Verified schema with `check_schema.py`
-- [ ] Follows PostgreSQL standards (see `doc/guides/postgres.md`)
+- [ ] Follows PostgreSQL standards (see `contracts/standards/database/README.md`)
 
 ---
 

@@ -30,7 +30,6 @@ pulse-backend/
 ├── doc/                        # Documentation
 │   ├── deployment.md          # 🆕 Deployment guide
 │   ├── product_context.md     # Product overview
-│   ├── examples/              # Context usage examples
 │   └── guides/                # Implementation guides
 │       └── broker-integration.md  # Broker integration (mock + production)
 │

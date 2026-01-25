@@ -6,9 +6,8 @@ Trading backend monorepo with three components:
 - **Pulse Background**: Background workers for async order processing
 
 **Quick-start guides below. For detailed information, see:**
-- `contracts/standards/` - Cross-service standards (database, testing, API, etc.)
+- `contracts/standards/` - Cross-service standards (database, testing, API, context, etc.)
 - `doc/guides/` - Implementation guides (broker integration)
-- `doc/examples/` - Context usage examples
 
 ## Requirements
 

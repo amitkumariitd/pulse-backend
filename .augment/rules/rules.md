@@ -83,15 +83,18 @@ Folders represent services. Code represents domain concepts.
 
 **PostgreSQL Standards (mandatory):**
 
-All database code MUST follow `.augment/rules/postgres.md`. Key requirements:
+All database code MUST follow `contracts/standards/database/README.md`.
 
-- Use repository pattern for all database access
-- Include `trace_id` and `request_id` in all writes
+Key requirements:
+- Use repository pattern for all database access (inherit from BaseRepository)
+- Include `request_id` in ALL tables, `origin_*` columns in async-initiating tables
 - Use parameterized queries (never string interpolation)
 - Use connection pooling with asyncpg
 - Use Alembic for schema migrations
+- Create history tables with triggers for all tables
+- Never store derived/aggregated data (counts, sums)
 
-See `.augment/rules/postgres.md` for detailed enforcement rules.
+See `contracts/standards/database/README.md` for principles and `doc/guides/postgres-implementation.md` for Python/asyncpg implementation.
 
 ---
 
@@ -158,9 +161,18 @@ Key requirements:
 
 ## Testing rules
 
-**All testing requirements are defined in `.augment/rules/testing.md`.**
+**All testing requirements are defined in `contracts/standards/testing/README.md`.**
 
 Testing is mandatory for all code changes. No exceptions.
+
+Key requirements:
+- New endpoints → integration tests (success, validation, auth)
+- New functions/methods → unit tests (behavior, edge cases, errors)
+- Modified behavior → regression tests (new + existing behavior)
+- Tests MUST pass before considering the change done
+- Do NOT disable tests to make builds pass
+
+See `TESTING.md` for detailed guide, commands, and examples.
 
 ---
 

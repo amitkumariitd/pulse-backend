@@ -30,13 +30,10 @@ pulse-backend/
 ├── doc/                        # Documentation
 │   ├── deployment.md          # 🆕 Deployment guide
 │   ├── product_context.md     # Product overview
-│   ├── examples/              # Code examples (Python-specific)
-│   │   └── postgres/          # Python/asyncpg examples
-│   └── guides/                # Detailed implementation guides
-│       ├── postgres-implementation.md  # Python/asyncpg implementation details
-│       ├── zerodha_integration.md      # Zerodha broker integration
-│       ├── mock_broker_configuration.md # Mock broker scenarios
-│       └── testing_without_broker.md   # Testing without real broker
+│   ├── examples/              # Code templates and examples
+│   │   └── postgres/          # Python/asyncpg examples (migration, repository, pool)
+│   └── guides/                # Implementation guides
+│       └── broker-integration.md  # Broker integration (mock + production)
 │
 ├── config/                     # Application configuration
 │   └── settings.py            # Central settings

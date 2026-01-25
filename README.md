@@ -5,9 +5,10 @@ Trading backend monorepo with three components:
 - **Pulse API**: Internal order management HTTP API
 - **Pulse Background**: Background workers for async order processing
 
-**Quick-start guides below. For detailed guides, see:**
-- `doc/guides/` - Implementation details (PostgreSQL, Zerodha, testing)
-- `contracts/standards/` - Cross-service standards (API testing, IDE setup, database, etc.)
+**Quick-start guides below. For detailed information, see:**
+- `doc/examples/` - Code templates and examples (Python/asyncpg, etc.)
+- `doc/guides/` - Implementation guides (broker integration)
+- `contracts/standards/` - Cross-service standards (database, testing, API, etc.)
 
 ## Requirements
 
@@ -122,8 +123,7 @@ See [TESTING.md](TESTING.md) for details.
 
 **See:**
 - [Database Standard](contracts/standards/database/README.md) - Principles and patterns
-- `doc/guides/postgres-implementation.md` - Python/asyncpg implementation details
-- `doc/examples/postgres/` - Python code examples
+- `doc/examples/postgres/` - Python/asyncpg examples and templates
 
 ---
 
@@ -155,9 +155,7 @@ ZERODHA_API_KEY=your_api_key
 ZERODHA_ACCESS_TOKEN=your_access_token
 ```
 
-**See:**
-- `doc/guides/zerodha_integration.md` - Full integration guide
-- `doc/guides/mock_broker_configuration.md` - Mock scenarios and configuration
+**See:** `doc/guides/broker-integration.md` for complete guide (mock mode, production setup, API usage)
 
 ---
 

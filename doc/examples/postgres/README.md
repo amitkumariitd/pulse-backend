@@ -180,9 +180,7 @@ ORDER BY changed_at DESC;
 
 ## See Also
 
-- **Standard**: [Database Standard](../../contracts/standards/database/README.md)
-- **SQL Examples**: [Database Examples](../../contracts/standards/database/examples/)
-- **Implementation Guide**: `doc/guides/postgres-implementation.md`
-- **Enforcement Rules**: `.augment/rules/postgres.md`
-- **Testing**: `.augment/rules/testing.md`
+- **Standard**: [Database Standard](../../contracts/standards/database/README.md) - Principles and patterns
+- **SQL Examples**: [Database Examples](../../contracts/standards/database/examples/) - Generic SQL schemas
+- **Enforcement**: `.augment/rules/rules.md` - Augment AI enforcement rules
 

@@ -1,60 +1,83 @@
-# Zerodha Integration Guide
+# Broker Integration Guide
 
-This guide explains how to integrate with Zerodha's KiteConnect API for live order execution.
+Complete guide for broker integration with Zerodha, including mock mode for development and production setup.
 
 ---
 
 ## Overview
 
-The `ZerodhaClient` in `pulse/brokers/zerodha_client.py` provides a unified interface for placing and monitoring orders with Zerodha. It supports both:
+The `ZerodhaClient` in `pulse/brokers/zerodha_client.py` provides a unified interface for placing and monitoring orders. It supports:
 - **Mock mode** (default) - For development and testing
 - **Production mode** - For live trading with real Zerodha API
 
 ---
 
-## Prerequisites
+## Mock Mode (Development & Testing)
 
-### 1. Install KiteConnect Library
-
-The `kiteconnect` library is already included in `requirements.txt`:
-
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Get Zerodha API Credentials
-
-To use the real Zerodha API, you need:
-
-1. **API Key** - Get from Zerodha Developer Console
-   - Sign up at: https://developers.kite.trade/
-   - Create a new app
-   - Note your API key
-
-2. **Access Token** - Generate via login flow
-   - Zerodha uses OAuth2 for authentication
-   - Access tokens expire daily and must be regenerated
-   - See: https://kite.trade/docs/connect/v3/user/
-
----
-
-## Configuration
-
-### Development (Mock Mode)
-
-For local development and testing, use mock mode (default):
+### Configuration
 
 ```bash
 # .env.local
 ZERODHA_USE_MOCK=true
-ZERODHA_MOCK_SCENARIO=success  # Options: success, partial_fill, rejection, network_error, timeout
+ZERODHA_MOCK_SCENARIO=success  # See scenarios below
 ```
 
-No API credentials needed in mock mode.
+### Mock Scenarios
 
-### Production (Real API)
+| Scenario | Behavior | Use Case |
+|----------|----------|----------|
+| `success` | Orders complete successfully | Happy path testing |
+| `partial_fill` | Limit orders partially fill (50%) | Test partial execution |
+| `rejection` | Broker rejects orders | Test error handling |
+| `network_error` | Simulates network timeouts | Test retry logic |
+| `timeout` | Orders timeout without filling | Test timeout monitor |
 
-For production with real Zerodha API:
+### Testing
+
+**Run manual tests:**
+```bash
+python tests/manual/test_mock_execution.py
+```
+
+**Run unit tests:**
+```bash
+pytest tests/unit/brokers/test_zerodha_client.py
+```
+
+**Test specific scenario:**
+```bash
+export ZERODHA_MOCK_SCENARIO=partial_fill
+python -m pulse.background
+```
+
+---
+
+## Production Mode (Real Zerodha API)
+
+---
+
+### Prerequisites
+
+**1. Install KiteConnect Library**
+
+Already included in `requirements.txt`:
+```bash
+pip install -r requirements.txt
+```
+
+**2. Get Zerodha API Credentials**
+
+- **API Key** - Get from Zerodha Developer Console
+  - Sign up at: https://developers.kite.trade/
+  - Create a new app
+  - Note your API key
+
+- **Access Token** - Generate via login flow
+  - Zerodha uses OAuth2 for authentication
+  - Access tokens expire daily and must be regenerated
+  - See: https://kite.trade/docs/connect/v3/user/
+
+### Configuration
 
 ```bash
 # .env.production or environment variables
@@ -182,29 +205,6 @@ Common error scenarios:
 
 ---
 
-## Mock Scenarios
-
-For testing different scenarios in mock mode:
-
-```python
-# Success - Orders complete immediately
-client = ZerodhaClient(api_key="test", use_mock=True, mock_scenario="success")
-
-# Partial fill - Limit orders partially fill
-client = ZerodhaClient(api_key="test", use_mock=True, mock_scenario="partial_fill")
-
-# Rejection - Broker rejects order
-client = ZerodhaClient(api_key="test", use_mock=True, mock_scenario="rejection")
-
-# Network error - Simulates network failures
-client = ZerodhaClient(api_key="test", use_mock=True, mock_scenario="network_error")
-
-# Timeout - Orders timeout without filling
-client = ZerodhaClient(api_key="test", use_mock=True, mock_scenario="timeout")
-```
-
----
-
 ## Production Deployment
 
 ### 1. Set Environment Variables
@@ -231,16 +231,6 @@ Access tokens expire daily. Implement a refresh mechanism:
 Zerodha has rate limits (3 requests/second). The execution worker respects these limits by:
 - Polling every 5 seconds (not every second)
 - Processing slices sequentially (not in parallel)
-
----
-
-## Testing
-
-Run tests with mock mode:
-
-```bash
-./scripts/run_tests_local.sh tests/unit/services/pulse/test_execution_worker.py -v
-```
 
 ---
 

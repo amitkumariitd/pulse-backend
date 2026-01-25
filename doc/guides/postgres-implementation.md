@@ -1,5 +1,8 @@
-# PostgreSQL Standard
+# PostgreSQL Implementation - Pulse Backend
 
+Python/asyncpg-specific implementation of database standards for Pulse Backend.
+
+**Standard:** See [Database Standard](../../contracts/standards/database/README.md) for cross-service principles.
 **Enforcement**: `.augment/rules/postgres.md`
 **Examples**: `doc/examples/postgres/`
 

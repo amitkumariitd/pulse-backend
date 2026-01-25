@@ -31,11 +31,11 @@ pulse-backend/
 │   ├── deployment.md          # 🆕 Deployment guide
 │   ├── product_context.md     # Product overview
 │   ├── examples/              # Code examples
-│   └── guides/                # Repo-specific guides
-│       ├── postgres.md        # PostgreSQL setup (backend-specific)
-│       ├── zerodha_integration.md
-│       ├── pycharm-debug.md
-│       ├── postman-setup.md
+│   └── guides/                # Pulse-specific implementation guides
+│       ├── postgres-implementation.md  # Python/asyncpg implementation
+│       ├── api-testing.md              # Pulse API testing (references contracts/standards/api-testing/)
+│       ├── ide-setup.md                # Pulse IDE setup (references contracts/standards/ide-setup/)
+│       ├── zerodha_integration.md      # Broker integration
 │       ├── mock_broker_configuration.md
 │       └── testing_without_broker.md
 │

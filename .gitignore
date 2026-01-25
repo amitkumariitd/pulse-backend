@@ -62,3 +62,4 @@ logs/
 postman/*production*.json
 postman/*staging*.json
 postman/*prod*.json
+/contracts/.idea/

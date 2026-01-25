@@ -1,12 +1,17 @@
-# Postman Setup Guide
+# API Testing - Pulse Backend
 
-Quick guide to using Postman with Pulse Backend.
+Pulse-specific guide for API testing with Postman.
 
-## Import Collection
+**Standard:** See [API Testing Standard](../../contracts/standards/api-testing/README.md) for cross-service best practices.
 
-### Method 1: Import Files (Recommended)
+---
+
+## Quick Start
+
+### 1. Import Postman Collection
 
 ```bash
+# Method 1: Import Files (Recommended)
 # 1. Open Postman
 # 2. Click "Import" button (top left)
 # 3. Click "Upload Files"
@@ -17,23 +22,33 @@ Quick guide to using Postman with Pulse Backend.
 # 6. Click "Import"
 ```
 
-### Method 2: Import Folder
-
-```bash
-# 1. Open Postman
-# 2. Click "Import" → "Folder"
-# 3. Select the pulse-backend/postman/ directory
-# 4. Click "Import"
-```
-
-## Select Environment
+### 2. Select Environment
 
 1. Look at top-right corner of Postman
 2. Click environment dropdown
 3. Select **"Pulse Backend - Local"**
 4. You should see: `base_url: http://localhost:8000`
 
-## Test the APIs
+---
+
+## Pulse-Specific Collection Structure
+
+```
+Pulse Backend Collection
+├── Health/
+│   └── Health Check
+├── GAPI (External API)/
+│   ├── Create Order
+│   └── (requires auth)
+└── Pulse API (Internal)/
+    ├── Create Order
+    ├── Get Order by ID
+    └── Get Order Slices
+```
+
+---
+
+## Testing Workflow
 
 ### 1. Start the Application
 
@@ -57,19 +72,10 @@ uvicorn main:app --reload --port 8000
 - Click **"Send"**
 - Copy the `order_id` from response (e.g., `"ord_1234567890abcdef"`)
 
-### 4. Set Order ID Variable
+### 4. Auto-Save Order ID
 
-**Option A: Manual**
-1. Click **Environments** icon (top right)
-2. Click **"Pulse Backend - Local"**
-3. Find `order_id` row
-4. Paste the order ID in **CURRENT VALUE** column
-5. Click **Save** (Cmd+S)
+Add this script to **"Create Order"** request's **Tests** tab:
 
-**Option B: Automatic (Recommended)**
-1. Click **"Create Order"** request
-2. Go to **"Tests"** tab
-3. Add this script:
 ```javascript
 if (pm.response.code === 200) {
     const response = pm.response.json();
@@ -77,8 +83,8 @@ if (pm.response.code === 200) {
     console.log("Saved order_id:", response.order_id);
 }
 ```
-4. Save the request
-5. Now every time you create an order, `order_id` is auto-saved
+
+Now every time you create an order, `order_id` is auto-saved!
 
 ### 5. Get Order Details
 
@@ -92,7 +98,9 @@ if (pm.response.code === 200) {
 
 - Click **"Get Order Slices"**
 - Click **"Send"**
-- Should return array of 5 slices (or whatever `num_splits` you used)
+- Should return array of slices (based on `num_splits`)
+
+---
 
 ## Available Endpoints
 
@@ -108,15 +116,17 @@ if (pm.response.code === 200) {
 - `GET /pulse/internal/orders/{order_id}` - Get order details
 - `GET /pulse/internal/orders/{order_id}/slices` - Get order slices
 
-## Variables
+---
 
-The collection uses these variables:
+## Environment Variables
 
 | Variable | Default Value | Description |
 |----------|---------------|-------------|
 | `base_url` | `http://localhost:8000` | API base URL |
 | `auth_token` | `test-token-123` | GAPI authentication token |
 | `order_id` | (empty) | Order ID for testing (set after creating order) |
+
+---
 
 ## Troubleshooting
 
@@ -143,6 +153,8 @@ uvicorn main:app --reload --port 8000
 - Check environment is selected: **"Pulse Backend - Local"** (top-right)
 - Variables use double curly braces: `{{variable_name}}`
 - Check variable spelling matches exactly
+
+---
 
 ## Adding Production Environment
 
@@ -171,6 +183,8 @@ When you have a production/staging server:
 4. **DO NOT commit real production credentials to git**
 5. Use Postman's secret variables or local-only environment files
 
+---
+
 ## Keeping Collection Updated
 
 When you add new endpoints:
@@ -187,11 +201,11 @@ git add postman/
 git commit -m "docs: update Postman collection with new endpoints"
 ```
 
-This keeps the collection in sync with the codebase for the whole team.
+---
 
 ## See Also
 
-- Full documentation: `postman/README.md`
-- API contracts: `contracts/`
-- Local setup: `doc/guides/local-setup.md`
+- **Standard:** [API Testing Standard](../../contracts/standards/api-testing/README.md)
+- **Postman Files:** `postman/`
+- **API Contracts:** `contracts/service-groups/pulse-backend/services/`
 

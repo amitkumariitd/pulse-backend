@@ -2,7 +2,8 @@
 
 **Every database interaction MUST follow these rules. No exceptions.**
 
-See `doc/guides/postgres.md` for detailed guide, examples, and best practices.
+**Standard:** See `contracts/standards/database/README.md` for cross-service database principles.
+**Implementation:** See `doc/guides/postgres-implementation.md` for Python/asyncpg specifics, examples, and best practices.
 
 ---
 

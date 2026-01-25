@@ -188,7 +188,7 @@ async def process_order(order_data: dict, ctx: RequestContext):
 }
 ```
 
-See `doc/guides/logging.md` for log format details.
+See `contracts/guides/logging.md` for log format details.
 
 ---
 

@@ -137,7 +137,7 @@ base_url = settings.pulse_api_base_url or "http://localhost:8001"  # ❌ NO!
 
 ## Concurrency rules
 
-**All concurrent code MUST follow `doc/guides/concurrency.md`.**
+**All concurrent code MUST follow `contracts/guides/concurrency.md`.**
 
 Key requirements:
 - API operations must be idempotent (unique idempotency_key)

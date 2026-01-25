@@ -314,6 +314,6 @@ Environment variables: LOG_LEVEL=DEBUG
 ## See Also
 
 - **Postman Setup:** `doc/guides/postman-setup.md`
-- **Testing Guide:** `doc/guides/testing.md`
-- **Logging Guide:** `doc/guides/logging.md`
+- **Testing Guide:** `contracts/guides/testing.md`
+- **Logging Guide:** `contracts/guides/logging.md`
 

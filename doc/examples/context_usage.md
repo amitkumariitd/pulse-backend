@@ -36,7 +36,7 @@ def list_orders():
     return {"orders": []}
 ```
 
-Context fields (`trace_id`, `request_id`, etc.) are automatically included in logs. See `doc/guides/logging.md` for format details.
+Context fields (`trace_id`, `request_id`, etc.) are automatically included in logs. See `contracts/guides/logging.md` for format details.
 
 ---
 
@@ -223,7 +223,7 @@ def handle_webhook(data: dict):
 
 ## See Also
 
-- [Context Standard](../standards/context.md) - Complete context specification
-- [Logging Standard](../standards/logging.md) - Logging format
-- [Tracing Standard](../standards/tracing.md) - Tracing semantics
+- [Context Standard](../../contracts/guides/context.md) - Complete context specification
+- [Logging Standard](../../contracts/guides/logging.md) - Logging format
+- [Tracing Standard](../../contracts/guides/tracing.md) - Tracing semantics
 

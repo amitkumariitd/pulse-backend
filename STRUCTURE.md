@@ -31,13 +31,13 @@ pulse-backend/
 │   ├── deployment.md          # 🆕 Deployment guide
 │   ├── product_context.md     # Product overview
 │   ├── examples/              # Code examples
-│   └── standards/             # Technical standards
-│       ├── config.md
-│       ├── context.md
-│       ├── logging.md
-│       ├── postgres.md
-│       ├── testing.md
-│       └── tracing.md
+│   └── guides/                # Repo-specific guides
+│       ├── postgres.md        # PostgreSQL setup (backend-specific)
+│       ├── zerodha_integration.md
+│       ├── pycharm-debug.md
+│       ├── postman-setup.md
+│       ├── mock_broker_configuration.md
+│       └── testing_without_broker.md
 │
 ├── config/                     # Application configuration
 │   └── settings.py            # Central settings

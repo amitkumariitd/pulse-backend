@@ -5,6 +5,10 @@ Trading backend monorepo with three components:
 - **Pulse API**: Internal order management HTTP API
 - **Pulse Background**: Background workers for async order processing
 
+**Quick-start guides below. For detailed guides, see:**
+- `doc/guides/` - Implementation details (PostgreSQL, Zerodha, testing)
+- `contracts/standards/` - Cross-service standards (API testing, IDE setup, database, etc.)
+
 ## Requirements
 
 - **Python 3.12+**
@@ -58,6 +62,102 @@ python -m pytest -v
 ```
 
 See [TESTING.md](TESTING.md) for details.
+
+---
+
+## API Testing with Postman
+
+### Quick Start
+
+1. **Import collection:**
+   - Open Postman → Import
+   - Select `postman/pulse-backend.postman_collection.json`
+   - Select `postman/local.postman_environment.json`
+
+2. **Select environment:** "Pulse Backend - Local" (top-right dropdown)
+
+3. **Test endpoints:**
+   - Health Check → `GET /health`
+   - Create Order → `POST /gapi/api/orders` (requires auth header)
+   - Get Order → `GET /pulse/internal/orders/{order_id}`
+
+**See:** [API Testing Standard](contracts/standards/api-testing/README.md) for best practices.
+
+---
+
+## IDE Setup (PyCharm)
+
+### Quick Start
+
+1. **Open project:** `File → Open → pulse-backend/`
+2. **Set interpreter:** `Preferences → Python Interpreter → Add → Existing → .venv/bin/python`
+3. **Use debug config:** Select "Pulse Backend - Debug" from dropdown (top-right)
+4. **Start debugging:** Click debug button (bug icon) or `Ctrl+D`
+
+**Breakpoint locations:**
+- API routes: `pulse/api/routes.py`, `gapi/api/routes.py`
+- Workers: `pulse/workers/splitting_worker.py`
+- Repositories: `pulse/repositories/order_repository.py`
+
+**See:** [IDE Setup Standard](contracts/standards/ide-setup/README.md) for debugging strategies.
+
+---
+
+## Database (PostgreSQL)
+
+### Quick Start
+
+**Connection:** Already configured in `pulse/infrastructure/database.py`
+
+**Create new table:**
+1. See SQL examples: `contracts/standards/database/examples/`
+2. Create migration: `alembic revision -m "create my_table"`
+3. Copy from `doc/examples/postgres/03-migration.py`
+4. Run: `alembic upgrade head`
+
+**Create repository:**
+1. Copy template: `doc/examples/postgres/04-repository.py`
+2. Customize for your table
+3. Use in routes via dependency injection
+
+**See:**
+- [Database Standard](contracts/standards/database/README.md) - Principles and patterns
+- `doc/guides/postgres-implementation.md` - Python/asyncpg implementation details
+- `doc/examples/postgres/` - Python code examples
+
+---
+
+## Broker Integration (Zerodha)
+
+### Mock Mode (Default)
+
+For development and testing, mock mode is enabled by default:
+
+```bash
+# .env.local
+ZERODHA_USE_MOCK=true
+ZERODHA_MOCK_SCENARIO=success  # Options: success, partial_fill, rejection, timeout
+```
+
+**Test manually:**
+```bash
+python tests/manual/test_mock_execution.py
+```
+
+### Production Mode
+
+For live trading with Zerodha:
+
+```bash
+# .env.production
+ZERODHA_USE_MOCK=false
+ZERODHA_API_KEY=your_api_key
+ZERODHA_ACCESS_TOKEN=your_access_token
+```
+
+**See:**
+- `doc/guides/zerodha_integration.md` - Full integration guide
+- `doc/guides/mock_broker_configuration.md` - Mock scenarios and configuration
 
 ---
 

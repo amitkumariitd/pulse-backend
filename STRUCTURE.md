@@ -30,14 +30,13 @@ pulse-backend/
 ├── doc/                        # Documentation
 │   ├── deployment.md          # 🆕 Deployment guide
 │   ├── product_context.md     # Product overview
-│   ├── examples/              # Code examples
-│   └── guides/                # Pulse-specific implementation guides
-│       ├── postgres-implementation.md  # Python/asyncpg implementation
-│       ├── api-testing.md              # Pulse API testing (references contracts/standards/api-testing/)
-│       ├── ide-setup.md                # Pulse IDE setup (references contracts/standards/ide-setup/)
-│       ├── zerodha_integration.md      # Broker integration
-│       ├── mock_broker_configuration.md
-│       └── testing_without_broker.md
+│   ├── examples/              # Code examples (Python-specific)
+│   │   └── postgres/          # Python/asyncpg examples
+│   └── guides/                # Detailed implementation guides
+│       ├── postgres-implementation.md  # Python/asyncpg implementation details
+│       ├── zerodha_integration.md      # Zerodha broker integration
+│       ├── mock_broker_configuration.md # Mock broker scenarios
+│       └── testing_without_broker.md   # Testing without real broker
 │
 ├── config/                     # Application configuration
 │   └── settings.py            # Central settings

@@ -1,43 +1,19 @@
-# PostgreSQL Examples
+# PostgreSQL Examples - Python/asyncpg Implementation
 
-Complete, copy-paste ready examples for PostgreSQL implementation in Pulse.
+Python-specific examples for PostgreSQL implementation in Pulse Backend.
+
+**Standard**: See [Database Standard](../../contracts/standards/database/README.md) for cross-service principles.
+**SQL Examples**: See [Database Examples](../../contracts/standards/database/examples/) for generic SQL table schemas.
 
 ---
 
 ## Files
 
-### 1. `01-basic-table.sql`
-**What**: Complete table schema with all required columns  
-**Use**: Template for creating new tables  
+### 1. `03-migration.py`
+**What**: Python/Alembic migration template
+**Use**: Template for creating database migrations in Pulse
 **Includes**:
-- Primary key
-- Business columns
-- Tracing columns (trace_id, request_id, tracing_source, request_source)
-- Timestamp columns (created_at, updated_at)
-- Required indexes
-- Comments
-
----
-
-### 2. `02-history-table.sql`
-**What**: History table with trigger-based audit trail  
-**Use**: Template for adding history to any table  
-**Includes**:
-- History table schema
-- Trigger function (captures INSERT/UPDATE/DELETE)
-- Triggers (automatic population)
-- Clustered index on changed_at
-- Comments
-
-**Key Point**: Triggers handle history automatically - no application code needed!
-
----
-
-### 3. `03-migration.py`
-**What**: Complete Alembic migration  
-**Use**: Template for creating migrations  
-**Includes**:
-- Main table creation
+- Main table creation (using asyncpg)
 - Indexes
 - History table creation
 - Trigger function
@@ -51,33 +27,39 @@ alembic revision -m "create orders table"
 alembic upgrade head
 ```
 
+**Python-specific**: Uses Alembic (Python migration tool)
+
 ---
 
-### 4. `04-repository.py`
-**What**: Repository implementation with best practices  
-**Use**: Template for creating repositories  
+### 2. `04-repository.py`
+**What**: Python/asyncpg repository implementation
+**Use**: Template for creating repositories in Pulse
 **Includes**:
-- BaseRepository pattern
-- Connection management
-- Tracing context propagation
-- Parameterized queries
-- Error handling
+- BaseRepository pattern (Python class)
+- Connection management (asyncpg pool)
+- Tracing context propagation (RequestContext)
+- Parameterized queries (asyncpg syntax: $1, $2)
+- Error handling (asyncpg.PostgresError)
 - CRUD operations
 
 **Key Point**: Repositories handle all database access - no direct queries in routes!
 
+**Python-specific**: Uses asyncpg library, async/await syntax
+
 ---
 
-### 5. `05-connection-pool.py`
-**What**: Connection pool setup with FastAPI  
-**Use**: Template for database initialization  
+### 3. `05-connection-pool.py`
+**What**: Python/FastAPI connection pool setup
+**Use**: Template for database initialization in Pulse
 **Includes**:
-- Pool configuration
+- Pool configuration (asyncpg.create_pool)
 - FastAPI lifespan integration
-- Dependency injection
+- Dependency injection (FastAPI Depends)
 - Health check endpoint
 
 **Key Point**: Initialize pool once at startup, reuse across requests!
+
+**Python-specific**: Uses FastAPI framework, asyncpg library
 
 ---
 
@@ -86,42 +68,40 @@ alembic upgrade head
 ### 1. Create a New Table
 
 ```bash
-# 1. Copy 01-basic-table.sql and customize for your table
-cp doc/examples/postgres/01-basic-table.sql my-table.sql
+# 1. See generic SQL examples in contracts
+cat contracts/standards/database/examples/01-basic-table.sql
+cat contracts/standards/database/examples/02-history-table.sql
 
-# 2. Copy 02-history-table.sql and customize
-cp doc/examples/postgres/02-history-table.sql my-table-history.sql
-
-# 3. Create migration
+# 2. Create Alembic migration
 alembic revision -m "create my_table"
 
-# 4. Copy code from 03-migration.py into migration file
+# 3. Copy code from 03-migration.py into migration file
+# Customize table name and columns
 
-# 5. Run migration
+# 4. Run migration
 alembic upgrade head
 ```
 
 ### 2. Create a Repository
 
 ```bash
-# 1. Copy 04-repository.py
+# 1. Copy Python repository template
 cp doc/examples/postgres/04-repository.py pulse/repositories/my_repository.py
 
 # 2. Customize for your table
+# - Update class name
+# - Update table name
+# - Update column names
+# - Add business logic methods
 
-# 3. Use in route handlers
+# 3. Use in route handlers via dependency injection
 ```
 
-### 3. Setup Connection Pool
+### 3. Setup Connection Pool (Already Done in Pulse)
 
-```bash
-# 1. Copy 05-connection-pool.py
-cp doc/examples/postgres/05-connection-pool.py pulse/infrastructure/database.py
+Connection pool is already configured in `pulse/infrastructure/database.py`.
 
-# 2. Configure settings in .env
-
-# 3. Use in FastAPI app
-```
+See `05-connection-pool.py` for reference if creating a new service.
 
 ---
 
@@ -200,7 +180,9 @@ ORDER BY changed_at DESC;
 
 ## See Also
 
+- **Standard**: [Database Standard](../../contracts/standards/database/README.md)
+- **SQL Examples**: [Database Examples](../../contracts/standards/database/examples/)
+- **Implementation Guide**: `doc/guides/postgres-implementation.md`
 - **Enforcement Rules**: `.augment/rules/postgres.md`
-- **Standards**: `doc/guides/postgres.md`
 - **Testing**: `.augment/rules/testing.md`
 

@@ -181,6 +181,6 @@ pip install -r requirements.txt
 
 ## See Also
 
-- [Testing Standard](contracts/guides/testing.md)
-- [Context Standard](contracts/guides/context.md)
+- [Testing Standard](contracts/standards/testing/README.md)
+- [Context Standard](contracts/standards/context/README.md)
 

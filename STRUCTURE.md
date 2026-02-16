@@ -25,7 +25,7 @@ pulse-backend/
 ├── tools/                      # 🆕 Development tools
 │   └── README.md              # Tools overview
 │
-├── contracts/                  # 🆕 API contracts (git submodule, see contracts/README.md)
+├── [pulse-contracts repo]      # 🆕 API contracts (separate working directory, see pulse-contracts/README.md)
 │
 ├── doc/                        # Documentation
 │   ├── deployment.md          # 🆕 Deployment guide

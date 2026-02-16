@@ -181,6 +181,6 @@ pip install -r requirements.txt
 
 ## See Also
 
-- [Testing Standard](contracts/standards/testing/README.md)
-- [Context Standard](contracts/standards/context/README.md)
+- Testing Standard in pulse-contracts repo (`standards/testing/README.md`)
+- Context Standard in pulse-contracts repo (`standards/context/README.md`)
 

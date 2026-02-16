@@ -34,15 +34,15 @@ They are mandatory and must be followed for every task.
 
 ## API contract rules (non-negotiable)
 
-- All APIs MUST be defined in `contracts/` before implementation.
+- All APIs MUST be defined in **pulse-contracts** repo (separate working directory) before implementation.
 - Do NOT invent endpoints, request fields, response fields, or error formats.
-- GAPI endpoints must exist only in `contracts/service-groups/pulse-backend/services/gapi-api/api.md`.
-- Pulse endpoints must exist only in `contracts/service-groups/pulse-backend/services/pulse-api/api.md`.
-- Shared schemas must come only from `contracts/schemas/common.md` and `contracts/schemas/common.yaml`.
+- GAPI endpoints must exist only in `service-groups/pulse-backend/services/gapi-api/api.md`.
+- Pulse endpoints must exist only in `service-groups/pulse-backend/services/pulse-api/api.md`.
+- Shared schemas must come only from `schemas/common.md` and `schemas/common.yaml`.
 
 If a change requires modifying a contract:
-1) Update the contract document first
-2) Then implement the code
+1) Update the contract document in pulse-contracts repo first
+2) Then implement the code in pulse-backend
 
 ---
 
@@ -83,7 +83,7 @@ Folders represent services. Code represents domain concepts.
 
 **PostgreSQL Standards (mandatory):**
 
-All database code MUST follow `contracts/standards/database/README.md`.
+All database code MUST follow database standards in pulse-contracts repo (`standards/database/README.md`).
 
 Key requirements:
 - Use repository pattern for all database access (inherit from BaseRepository)
@@ -94,7 +94,7 @@ Key requirements:
 - Create history tables with triggers for all tables
 - Never store derived/aggregated data (counts, sums)
 
-See `contracts/standards/database/README.md` for principles and `doc/guides/postgres-implementation.md` for Python/asyncpg implementation.
+See pulse-contracts repo (`standards/database/README.md`) for principles and `doc/guides/postgres-implementation.md` for Python/asyncpg implementation.
 
 ---
 
@@ -140,7 +140,7 @@ base_url = settings.pulse_api_base_url or "http://localhost:8001"  # ❌ NO!
 
 ## Concurrency rules
 
-**All concurrent code MUST follow `contracts/standards/concurrency/README.md`.**
+**All concurrent code MUST follow concurrency standards in pulse-contracts repo (`standards/concurrency/README.md`).**
 
 Key requirements:
 - API operations must be idempotent (unique idempotency_key)
@@ -161,7 +161,7 @@ Key requirements:
 
 ## Testing rules
 
-**All testing requirements are defined in `contracts/standards/testing/README.md`.**
+**All testing requirements are defined in pulse-contracts repo (`standards/testing/README.md`).**
 
 Testing is mandatory for all code changes. No exceptions.
 
@@ -188,5 +188,5 @@ See `TESTING.md` for detailed guide, commands, and examples.
 ## When in doubt
 
 - Re-read `.augment/context.md`
-- Re-read `contracts/*`
+- Re-read pulse-contracts repo (standards, service contracts, product docs)
 - Ask for clarification instead of guessing

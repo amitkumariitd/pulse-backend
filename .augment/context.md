@@ -76,10 +76,9 @@ Public clients must never call internal endpoints.
 ---
 
 ## API contracts (source of truth)
-All API contracts live under:
-contracts/
+All API contracts live in the **pulse-contracts** repository (separate working directory).
 
-This folder is a git submodule shared across all repositories.
+This repository is shared across all pulse services (backend and frontend).
 
 They are organized as follows:
 - `schemas/common.md` and `schemas/common.yaml`
@@ -90,6 +89,8 @@ They are organized as follows:
   Internal Pulse service endpoints
 - `product/`
   Product documentation and feature specifications
+- `standards/`
+  Cross-service standards (database, testing, concurrency, context, etc.)
 
 No endpoint, request, or response shape may be implemented
 unless it is defined in these contract files.

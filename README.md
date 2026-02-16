@@ -6,7 +6,10 @@ Trading backend monorepo with three components:
 - **Pulse Background**: Background workers for async order processing
 
 **Quick-start guides below. For detailed information, see:**
-- `contracts/standards/` - Cross-service standards (database, testing, API, context, etc.)
+- **pulse-contracts** repo (separate working directory) - Cross-service standards, API contracts, product specs
+  - `standards/` - Database, testing, API, context, concurrency, logging standards
+  - `service-groups/pulse-backend/services/` - API contracts for GAPI and Pulse
+  - `product/` - Product features and architecture documentation
 - `doc/guides/` - Implementation guides (broker integration)
 
 ## Requirements
@@ -81,7 +84,7 @@ See [TESTING.md](TESTING.md) for details.
    - Create Order → `POST /gapi/api/orders` (requires auth header)
    - Get Order → `GET /pulse/internal/orders/{order_id}`
 
-**See:** [API Testing Standard](contracts/standards/api-testing/README.md) for best practices.
+**See:** API Testing Standard in pulse-contracts repo (`standards/api-testing/README.md`) for best practices.
 
 ---
 
@@ -99,7 +102,7 @@ See [TESTING.md](TESTING.md) for details.
 - Workers: `pulse/workers/splitting_worker.py`
 - Repositories: `pulse/repositories/order_repository.py`
 
-**See:** [IDE Setup Standard](contracts/standards/ide-setup/README.md) for debugging strategies.
+**See:** IDE Setup Standard in pulse-contracts repo (`standards/ide-setup/README.md`) for debugging strategies.
 
 ---
 
@@ -110,19 +113,19 @@ See [TESTING.md](TESTING.md) for details.
 **Connection:** Already configured in `pulse/infrastructure/database.py`
 
 **Create new table:**
-1. See SQL examples: `contracts/standards/database/examples/01-basic-table.sql`
+1. See SQL examples in pulse-contracts repo: `standards/database/examples/01-basic-table.sql`
 2. Create migration: `alembic revision -m "create my_table"`
-3. Copy from `contracts/standards/database/examples/03-migration.py`
+3. Copy from pulse-contracts repo: `standards/database/examples/03-migration.py`
 4. Run: `alembic upgrade head`
 
 **Create repository:**
-1. Copy template: `contracts/standards/database/examples/04-repository.py`
+1. Copy template from pulse-contracts repo: `standards/database/examples/04-repository.py`
 2. Customize for your table
 3. Use in routes via dependency injection
 
 **See:**
-- [Database Standard](contracts/standards/database/README.md) - Principles and patterns
-- [Database Examples](contracts/standards/database/examples/) - SQL + Python templates
+- Database Standard in pulse-contracts repo (`standards/database/README.md`) - Principles and patterns
+- Database Examples in pulse-contracts repo (`standards/database/examples/`) - SQL + Python templates
 
 ---
 
